@@ -1,0 +1,80 @@
+{
+  "entities": {
+    "Ride": {
+      "title": "Ride",
+      "description": "Real-time ride request and tracking document shared between Passenger and Driver apps",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique ride ID" },
+        "status": { 
+          "type": "string", 
+          "enum": ["SEARCHING", "ACCEPTED", "ARRIVED", "IN_PROGRESS", "COMPLETED", "CANCELLED"],
+          "description": "Current state in the ride lifecycle" 
+        },
+        "passengerId": { "type": "string", "description": "ID of the passenger requesting the ride" },
+        "passengerName": { "type": "string", "description": "Name of the passenger" },
+        "passengerPhone": { "type": "string", "description": "Phone number of the passenger" },
+        "passengerRating": { "type": "number", "description": "Passenger rating out of 5" },
+        "pickupAddress": { "type": "string", "description": "Human-readable pickup location address" },
+        "pickupCoords": { "type": "object", "description": "Lat and lng coordinates of pickup" },
+        "dropAddress": { "type": "string", "description": "Human-readable drop location address" },
+        "dropCoords": { "type": "object", "description": "Lat and lng coordinates of drop" },
+        "fare": { "type": "number", "description": "Total gross fare in INR" },
+        "captainEarning": { "type": "number", "description": "Net earning for the captain (0% commission)" },
+        "distanceKm": { "type": "number", "description": "Distance in kilometers" },
+        "estimatedTimeMin": { "type": "number", "description": "Estimated travel duration in minutes" },
+        "vehicleType": { "type": "string", "enum": ["bike", "auto", "cab"], "description": "Requested vehicle type" },
+        "otp": { "type": "string", "description": "4-digit start trip security OTP" },
+        "paymentMode": { "type": "string", "enum": ["CASH", "ONLINE_UPI", "SAWARI_WALLET"], "description": "Selected payment method" },
+        "createdAt": { "type": "number", "description": "Timestamp when ride was requested" },
+        "captainId": { "type": "string", "description": "Assigned captain ID" },
+        "captainName": { "type": "string", "description": "Assigned captain name" },
+        "captainPhone": { "type": "string", "description": "Assigned captain contact number" },
+        "captainAvatar": { "type": "string", "description": "Assigned captain avatar URL" },
+        "captainRating": { "type": "number", "description": "Assigned captain rating" },
+        "vehicleModel": { "type": "string", "description": "Captain vehicle model" },
+        "vehicleNumber": { "type": "string", "description": "Captain vehicle registration plate" },
+        "driverLocation": { "type": "object", "description": "Live GPS coordinates of the driver" },
+        "driverHeading": { "type": "number", "description": "Live compass bearing of the driver" },
+        "driverProgress": { "type": "number", "description": "Progress percentage 0-100" }
+      },
+      "required": ["id", "status", "passengerName", "pickupAddress", "pickupCoords", "dropAddress", "dropCoords", "fare", "vehicleType", "otp", "createdAt"]
+    },
+    "Captain": {
+      "title": "Captain",
+      "description": "Registered driver partner profile with KYC status, vehicle, and document details",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string", "description": "Unique driver ID" },
+        "badgeId": { "type": "string", "description": "Public Captain Badge ID e.g. SW-DRV-108" },
+        "name": { "type": "string", "description": "Driver partner full legal name" },
+        "email": { "type": "string", "description": "Driver partner email address" },
+        "phone": { "type": "string", "description": "Driver partner mobile phone number" },
+        "avatar": { "type": "string", "description": "Driver selfie or photo data URL" },
+        "vehicleType": { "type": "string", "enum": ["bike", "auto", "cab"] },
+        "vehicleModel": { "type": "string", "description": "Make and model of vehicle" },
+        "vehicleNumber": { "type": "string", "description": "Vehicle number plate registration" },
+        "city": { "type": "string", "description": "City of operations" },
+        "rating": { "type": "number", "description": "Driver rating" },
+        "totalTrips": { "type": "number", "description": "Total completed rides" },
+        "acceptanceRate": { "type": "number", "description": "Acceptance rate %" },
+        "cancellationRate": { "type": "number", "description": "Cancellation rate %" },
+        "isKycVerified": { "type": "boolean", "description": "Whether KYC is verified" },
+        "kycStatus": { "type": "string", "enum": ["approved", "pending", "rejected"] },
+        "joinedDate": { "type": "string", "description": "Registration date" },
+        "upiId": { "type": "string", "description": "Direct settlement UPI VPA" }
+      },
+      "required": ["id", "badgeId", "name", "phone", "vehicleType", "vehicleNumber", "kycStatus"]
+    }
+  },
+  "firestore": {
+    "/rides/{rideId}": {
+      "schema": { "$ref": "#/entities/Ride" },
+      "description": "Collection of active and completed ride dispatches"
+    },
+    "/captains/{captainId}": {
+      "schema": { "$ref": "#/entities/Captain" },
+      "description": "Collection of registered captain partners"
+    }
+  }
+}

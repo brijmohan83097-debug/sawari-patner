@@ -1,0 +1,14 @@
+@import "tailwindcss";
+
+/* Night navigation filter for standard OpenStreetMap tiles (100% free with 0 API key) */
+.leaflet-tile-dark {
+  filter: brightness(0.6) invert(1) contrast(3) hue-rotate(200deg) saturate(0.3) !important;
+}
+
+.leaflet-tile-night {
+  filter: brightness(0.8) contrast(1.2) invert(0.9) hue-rotate(180deg) saturate(0.5) !important;
+}
+
+.leaflet-tile-light {
+  filter: none !important;
+}

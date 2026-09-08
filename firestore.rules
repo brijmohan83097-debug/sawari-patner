@@ -1,0 +1,55 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default Deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global primitive functions
+    function isValidId(id) { 
+      return id is string && id.size() > 0 && id.size() <= 128; 
+    }
+
+    function incoming() { 
+      return request.resource.data; 
+    }
+
+    function existing() { 
+      return resource.data; 
+    }
+
+    // Hardened Ride validation
+    function isValidRide(data) {
+      return data.id is string && data.id.size() <= 64 &&
+        data.status in ['SEARCHING', 'ACCEPTED', 'ARRIVED', 'IN_PROGRESS', 'COMPLETED', 'CANCELLED'] &&
+        data.passengerName is string && data.passengerName.size() <= 100 &&
+        data.pickupAddress is string && data.pickupAddress.size() <= 300 &&
+        data.dropAddress is string && data.dropAddress.size() <= 300 &&
+        data.fare is number && data.fare >= 0 && data.fare <= 100000 &&
+        data.vehicleType in ['bike', 'auto', 'cab'] &&
+        data.otp is string && data.otp.size() <= 8 &&
+        data.createdAt is number;
+    }
+
+    // Connectivity test check
+    match /test/{docId} {
+      allow read: if true;
+    }
+
+    // Rides Collection: Shared between Passenger and Captain apps
+    match /rides/{rideId} {
+      allow read: if true;
+      allow create: if isValidId(rideId) && isValidRide(incoming());
+      allow update: if isValidId(rideId);
+      allow delete: if isValidId(rideId);
+    }
+
+    // Captains Collection: Registered Driver Partners
+    match /captains/{captainId} {
+      allow read: if true;
+      allow create, update: if isValidId(captainId);
+      allow delete: if isValidId(captainId);
+    }
+  }
+}

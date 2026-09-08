@@ -1,0 +1,6 @@
+{
+  "name": "Sawari Partner",
+  "description": "Rapido-style driver partner app for bike taxi, auto, and cab captains with live duty toggle, interactive heatmaps, real-time ride requests, trip navigation, OTP verification, and instant UPI payouts.",
+  "requestFramePermissions": ["geolocation", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
