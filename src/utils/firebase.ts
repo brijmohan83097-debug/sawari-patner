@@ -4,12 +4,20 @@ import {
   RecaptchaVerifier, 
   signInWithPhoneNumber, 
   ConfirmationResult,
-  onAuthStateChanged,
+  onAuthStateChanged, 
   signOut,
   User,
   Auth
 } from 'firebase/auth';
-import { getFirestore, Firestore } from 'firebase/firestore';
+import { 
+  initializeFirestore,
+  getFirestore, 
+  Firestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  doc,
+  getDocFromServer
+} from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
 let app: FirebaseApp | null = null;
@@ -20,10 +28,39 @@ try {
   if (firebaseConfig && firebaseConfig.apiKey) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
-    db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+
+    // Initialize Firestore with reliable long-polling and multi-tab persistent cache
+    // This prevents [code=unavailable] WebChannel/WebSocket disconnect errors in container and iframe sandboxes
+    try {
+      db = initializeFirestore(
+        app, 
+        {
+          experimentalForceLongPolling: true,
+          localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
+        },
+        firebaseConfig.firestoreDatabaseId || undefined
+      );
+    } catch {
+      db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+    }
   }
 } catch (e) {
   console.warn('Firebase initialization notice:', e);
+}
+
+// Test connection on startup per Firebase skill guidelines
+if (db) {
+  testConnection(db);
+}
+
+async function testConnection(firestoreDb: Firestore) {
+  try {
+    await getDocFromServer(doc(firestoreDb, 'test', 'connection'));
+  } catch (error) {
+    if (error instanceof Error && error.message.includes('the client is offline')) {
+      console.warn('Firestore client operating in offline cache mode.');
+    }
+  }
 }
 
 /**

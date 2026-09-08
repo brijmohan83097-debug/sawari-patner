@@ -40,8 +40,11 @@ export interface FirestoreErrorInfo {
 }
 
 export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null) {
+  const errMsg = error instanceof Error ? error.message : String(error);
+  const errCode = (error as { code?: string })?.code;
+
   const errInfo: FirestoreErrorInfo = {
-    error: error instanceof Error ? error.message : String(error),
+    error: errMsg,
     authInfo: {
       userId: auth?.currentUser?.uid,
       email: auth?.currentUser?.email,
@@ -56,7 +59,15 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     operationType,
     path
   };
-  console.error('Firestore Error: ', JSON.stringify(errInfo));
+
+  if (errMsg.includes('Missing or insufficient permissions') || errMsg.includes('permission-denied') || errCode === 'permission-denied') {
+    console.error('Firestore Permission Error: ', JSON.stringify(errInfo));
+    throw new Error(JSON.stringify(errInfo));
+  } else if (errCode === 'unavailable' || errMsg.includes('offline') || errMsg.includes('Could not reach Cloud Firestore')) {
+    console.warn(`Firestore currently offline for ${operationType} on ${path}. Operating in local cache mode.`);
+  } else {
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+  }
 }
 
 // Local In-Memory & BroadcastChannel Bridge for Instant Cross-Tab Sync
