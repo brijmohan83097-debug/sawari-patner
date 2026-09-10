@@ -7,8 +7,7 @@ import {
   ShieldCheck, 
   Zap, 
   ArrowRight, 
-  Sparkles,
-  Smartphone
+  Sparkles
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { soundManager } from '../utils/audio';

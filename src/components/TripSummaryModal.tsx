@@ -4,12 +4,8 @@ import {
   Banknote, 
   CreditCard, 
   Star, 
-  MapPin, 
   ArrowRight, 
-  ShieldCheck, 
-  Receipt,
-  Sparkles,
-  Award
+  Receipt
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { RideRequest } from '../types';

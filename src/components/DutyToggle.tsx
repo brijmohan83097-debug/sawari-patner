@@ -1,5 +1,5 @@
 import React from 'react';
-import { Power, Sparkles, Radio, Shield, AlertTriangle, Lock, Zap } from 'lucide-react';
+import { Power, Radio, AlertTriangle, Lock, Zap } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 import { VehicleType, DAILY_PASS_PRICES } from '../types';
 import { useLanguage } from '../context/LanguageContext';

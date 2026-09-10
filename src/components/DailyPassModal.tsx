@@ -1,20 +1,15 @@
 import React, { useState } from 'react';
 import { 
-  ShieldCheck, 
   Sparkles, 
   Zap, 
   CheckCircle2, 
-  CreditCard, 
   Wallet, 
-  Clock, 
   AlertCircle, 
   X, 
   Bike, 
   Car, 
   ArrowRight,
-  Check,
-  Flame,
-  Radio
+  Check
 } from 'lucide-react';
 import { DailyPass, VehicleType, DAILY_PASS_PRICES, DriverProfile } from '../types';
 import { INITIAL_DRIVER } from '../data/mockData';

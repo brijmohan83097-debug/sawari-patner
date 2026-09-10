@@ -2,20 +2,17 @@ import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { 
   Navigation, 
-  MapPin, 
   Flame, 
   Compass, 
-  Layers, 
   LocateFixed, 
   Zap, 
-  Car,
-  Bike,
-  Plus,
-  Minus,
-  ArrowUpRight,
-  Route as RouteIcon,
-  Sun,
-  Moon,
+  Car, 
+  Bike, 
+  Plus, 
+  Minus, 
+  Route as RouteIcon, 
+  Sun, 
+  Moon, 
   Map as MapIcon
 } from 'lucide-react';
 import { HeatmapZone, RideRequest, TripStep, VehicleType, LatLng } from '../types';

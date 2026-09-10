@@ -2,12 +2,10 @@ import React from 'react';
 import { 
   TrendingUp, 
   Clock, 
-  MapPin, 
   Award, 
   ChevronRight, 
   Zap,
-  ArrowUpRight,
-  Flame
+  ArrowUpRight
 } from 'lucide-react';
 import { useLanguage } from '../context/LanguageContext';
 

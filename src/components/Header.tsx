@@ -7,14 +7,11 @@ import {
   VolumeX, 
   Bike, 
   Car, 
-  Sparkles,
-  AlertCircle,
-  Clock,
-  Award,
-  Lock,
-  LogIn,
-  LogOut,
-  UserCheck,
+  Clock, 
+  Award, 
+  Lock, 
+  LogIn, 
+  LogOut, 
   Settings
 } from 'lucide-react';
 import { DriverProfile, VehicleType } from '../types';

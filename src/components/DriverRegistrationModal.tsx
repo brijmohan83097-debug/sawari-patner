@@ -5,23 +5,17 @@ import {
   Mail, 
   Bike, 
   Car, 
-  ShieldCheck, 
-  UploadCloud, 
   CheckCircle2, 
   Clock, 
   X, 
   ArrowRight, 
   ArrowLeft, 
   Sparkles, 
-  FileText, 
   Award, 
-  HeartHandshake, 
   AlertCircle,
-  QrCode,
   Camera,
   Trash2,
-  RefreshCw,
-  Image as ImageIcon
+  RefreshCw
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { DriverProfile, VehicleType, KycDoc } from '../types';

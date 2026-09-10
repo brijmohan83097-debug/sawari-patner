@@ -54,6 +54,12 @@ import {
   LoginScreen 
 } from './components/LoginScreen';
 import { 
+  LanguageSelectionScreen 
+} from './components/LanguageSelectionScreen';
+import { 
+  VehicleDetailsScreen 
+} from './components/VehicleDetailsScreen';
+import { 
   DailyPassModal 
 } from './components/DailyPassModal';
 import { 
@@ -72,8 +78,7 @@ import {
   ErrorBoundary 
 } from './components/ErrorBoundary';
 import { 
-  LanguageProvider, 
-  useLanguage 
+  LanguageProvider 
 } from './context/LanguageContext';
 import {
   subscribeToSearchingRides,
@@ -85,10 +90,8 @@ import {
 } from './services/ridesService';
 import { 
   INITIAL_DRIVER, 
-  MOCK_DRIVERS,
   HEATMAP_ZONES, 
   INITIAL_COMPLETED_TRIPS, 
-  INITIAL_TRANSACTIONS, 
   WEEKLY_EARNINGS_DATA,
   INITIAL_ADMIN_STATS,
   MASTER_ADMIN_PHONE,
@@ -109,16 +112,7 @@ import {
   DailyPass
 } from './types';
 import { 
-  Zap, 
-  Radio, 
-  Flame, 
-  ShieldCheck, 
-  AlertCircle,
-  Bike,
-  Car,
-  Award,
-  Sparkles,
-  Lock
+  Zap 
 } from 'lucide-react';
 import { soundManager } from './utils/audio';
 
@@ -135,6 +129,19 @@ function AppContent() {
       return false;
     }
   });
+
+  // Language Selection Screen State (Shows on first app launch)
+  const [hasSelectedLanguage, setHasSelectedLanguage] = useState<boolean>(() => {
+    try {
+      return !!localStorage.getItem('sawari_language_selected');
+    } catch {
+      return false;
+    }
+  });
+  const [showLanguageScreen, setShowLanguageScreen] = useState<boolean>(false);
+
+  // Rapido-style Vehicle Details & KYC Onboarding Screen
+  const [showVehicleDetailsScreen, setShowVehicleDetailsScreen] = useState<boolean>(false);
 
   // Drivers Fleet State
   const [allDrivers, setAllDrivers] = useState<DriverProfile[]>([]);
@@ -789,7 +796,11 @@ function AppContent() {
   // ----------------------------------------------------
   if (appMode === 'admin') {
     return (
-      <>
+      <ErrorBoundary 
+        fallbackTitle="Admin Console Error" 
+        fallbackMessage="An unexpected error occurred in the Admin Dashboard. You can reset and return to the main app."
+        onReset={() => setAppMode('driver')}
+      >
         <AdminDashboard
           drivers={allDrivers}
           onApproveDriver={handleApproveDriver}
@@ -822,7 +833,7 @@ function AppContent() {
             onClose={() => setShowIdCardModal(false)}
           />
         )}
-      </>
+      </ErrorBoundary>
     );
   }
 
@@ -831,13 +842,67 @@ function AppContent() {
   // ----------------------------------------------------
   if (appMode === 'passenger') {
     return (
-      <PassengerAppView
-        onSwitchToCaptainApp={() => {
+      <ErrorBoundary 
+        fallbackTitle="Passenger View Error" 
+        fallbackMessage="An error occurred in the Passenger Companion. Returning to Captain Duty."
+        onReset={() => {
           setIsAuthenticated(true);
           setAppMode('driver');
         }}
-        onOpenSplitView={() => setAppMode('split')}
-      />
+      >
+        <PassengerAppView
+          onSwitchToCaptainApp={() => {
+            setIsAuthenticated(true);
+            setAppMode('driver');
+          }}
+          onOpenSplitView={() => setAppMode('split')}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  // ----------------------------------------------------
+  // 0. FIRST APP LAUNCH: RENDER LANGUAGE SELECTION SCREEN
+  // ----------------------------------------------------
+  if (!hasSelectedLanguage || showLanguageScreen) {
+    return (
+      <ErrorBoundary 
+        fallbackTitle="Language Settings" 
+        fallbackMessage="Could not load language preferences. Resetting to English."
+        onReset={() => {
+          setHasSelectedLanguage(true);
+          setShowLanguageScreen(false);
+        }}
+      >
+        <LanguageSelectionScreen
+          onConfirm={() => {
+            setHasSelectedLanguage(true);
+            setShowLanguageScreen(false);
+          }}
+        />
+      </ErrorBoundary>
+    );
+  }
+
+  // ----------------------------------------------------
+  // 0.5. VEHICLE DETAILS & KYC ONBOARDING SCREEN
+  // ----------------------------------------------------
+  if (showVehicleDetailsScreen) {
+    return (
+      <ErrorBoundary 
+        fallbackTitle="Vehicle KYC Error" 
+        fallbackMessage="An error occurred while uploading vehicle details. Tap reset to try again."
+        onReset={() => setShowVehicleDetailsScreen(false)}
+      >
+        <VehicleDetailsScreen
+          onBack={() => setShowVehicleDetailsScreen(false)}
+          onSubmitSuccess={(newDriver) => {
+            handleDriverRegistrationComplete(newDriver);
+            setShowVehicleDetailsScreen(false);
+            setIsAuthenticated(true);
+          }}
+        />
+      </ErrorBoundary>
     );
   }
 
@@ -846,17 +911,21 @@ function AppContent() {
   // ----------------------------------------------------
   if (!isAuthenticated && appMode !== 'split') {
     return (
-      <>
+      <ErrorBoundary 
+        fallbackTitle="Login Screen Error" 
+        fallbackMessage="An error occurred loading the Captain Login screen. Tap Reset to reload."
+        onReset={() => window.location.reload()}
+      >
         <LoginScreen
           onLoginSuccess={handleAuthLoginSuccess}
-          onOpenRegister={() => setShowRegisterModal(true)}
+          onOpenRegister={() => setShowVehicleDetailsScreen(true)}
           onOpenAdmin={() => setAppMode('admin')}
           onOpenPassengerApp={() => setAppMode('passenger')}
           onOpenSplitView={() => {
             setIsAuthenticated(true);
             setAppMode('split');
           }}
-          onOpenSettings={() => setShowSettingsModal(true)}
+          onOpenSettings={() => setShowLanguageScreen(true)}
         />
 
         {/* Settings Modal in Login Screen */}
@@ -897,7 +966,7 @@ function AppContent() {
             onClose={() => setShowIdCardModal(false)}
           />
         )}
-      </>
+      </ErrorBoundary>
     );
   }
 
@@ -1263,17 +1332,31 @@ function AppContent() {
   // ----------------------------------------------------
   if (appMode === 'split') {
     return (
-      <SplitScreenCompanion
-        onBackToDriver={() => setAppMode('driver')}
-        renderDriverApp={() => renderDriverMainView()}
-      />
+      <ErrorBoundary
+        fallbackTitle="Split Companion Error"
+        fallbackMessage="An error occurred in Split Screen Companion mode."
+        onReset={() => setAppMode('driver')}
+      >
+        <SplitScreenCompanion
+          onBackToDriver={() => setAppMode('driver')}
+          renderDriverApp={() => renderDriverMainView()}
+        />
+      </ErrorBoundary>
     );
   }
 
   // ----------------------------------------------------
   // RENDER STANDARD DRIVER PARTNER VIEW
   // ----------------------------------------------------
-  return renderDriverMainView();
+  return (
+    <ErrorBoundary
+      fallbackTitle="Sawari Partner Duty Error"
+      fallbackMessage="An unexpected error occurred on the captain duty view."
+      onReset={() => window.location.reload()}
+    >
+      {renderDriverMainView()}
+    </ErrorBoundary>
+  );
 }
 
 export default function App() {

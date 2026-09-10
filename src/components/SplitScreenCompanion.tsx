@@ -1,6 +1,6 @@
 import React from 'react';
 import { PassengerAppView } from './PassengerAppView';
-import { ArrowLeft, Monitor, Smartphone, Layers, Sparkles, Radio } from 'lucide-react';
+import { ArrowLeft, Layers } from 'lucide-react';
 
 interface SplitScreenCompanionProps {
   onBackToDriver: () => void;

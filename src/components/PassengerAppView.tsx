@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { 
   SharedRide, 
-  VehicleType, 
-  LatLng 
+  VehicleType 
 } from '../types';
 import { 
   createRideRequest, 
@@ -11,26 +10,15 @@ import {
   rateCompletedRide 
 } from '../services/ridesService';
 import { 
-  MapPin, 
-  Navigation, 
   Bike, 
-  Car, 
-  ShieldCheck, 
   Phone, 
   MessageSquare, 
   Star, 
-  CheckCircle2, 
-  AlertCircle, 
-  ArrowLeft, 
-  Clock, 
   Compass, 
-  Sparkles,
-  Layers,
-  X,
-  CreditCard,
-  Banknote,
-  Send,
-  Radio
+  Layers, 
+  X, 
+  Banknote, 
+  Send 
 } from 'lucide-react';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';

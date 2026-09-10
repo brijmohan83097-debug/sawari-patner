@@ -1,8 +1,11 @@
-import React, { Component, ErrorInfo, ReactNode } from 'react';
-import { AlertTriangle, RefreshCw, Home, ShieldAlert } from 'lucide-react';
+import React, { ErrorInfo, ReactNode } from 'react';
+import { AlertTriangle, RefreshCw, Home } from 'lucide-react';
 
 interface Props {
   children: ReactNode;
+  fallbackTitle?: string;
+  fallbackMessage?: string;
+  onReset?: () => void;
 }
 
 interface State {
@@ -31,7 +34,12 @@ export class ErrorBoundary extends React.Component<Props, State> {
   }
 
   private handleReload = () => {
-    window.location.reload();
+    if (this.props.onReset) {
+      this.setState({ hasError: false, error: null, errorInfo: null });
+      this.props.onReset();
+    } else {
+      window.location.reload();
+    }
   };
 
   private handleResetState = () => {
@@ -42,11 +50,19 @@ export class ErrorBoundary extends React.Component<Props, State> {
     } catch {
       // ignore
     }
-    window.location.reload();
+    if (this.props.onReset) {
+      this.setState({ hasError: false, error: null, errorInfo: null });
+      this.props.onReset();
+    } else {
+      window.location.reload();
+    }
   };
 
   public render() {
     if (this.state.hasError) {
+      const title = this.props.fallbackTitle || 'Something went wrong';
+      const message = this.props.fallbackMessage || "The application encountered an unexpected state. Don't worry, your ride data is safe.";
+
       return (
         <div className="min-h-screen bg-zinc-950 text-zinc-100 flex items-center justify-center p-4">
           <div className="max-w-md w-full bg-zinc-900 border border-zinc-800 rounded-3xl p-6 shadow-2xl text-center space-y-4">
@@ -55,9 +71,9 @@ export class ErrorBoundary extends React.Component<Props, State> {
             </div>
 
             <div className="space-y-1">
-              <h2 className="text-xl font-black text-zinc-100">Something went wrong</h2>
-              <p className="text-xs text-zinc-400">
-                The application encountered an unexpected state. Don't worry, your ride data is safe.
+              <h2 className="text-xl font-black text-zinc-100">{title}</h2>
+              <p className="text-xs text-zinc-400 leading-relaxed">
+                {message}
               </p>
             </div>
 
@@ -73,7 +89,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
                 className="w-full py-3 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black rounded-xl text-xs flex items-center justify-center gap-2 transition-transform active:scale-98 shadow-md"
               >
                 <RefreshCw className="w-4 h-4" />
-                <span>Reload Application</span>
+                <span>{this.props.onReset ? 'Try Again' : 'Reload Application'}</span>
               </button>
 
               <button

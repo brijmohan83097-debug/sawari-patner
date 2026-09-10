@@ -1,26 +1,17 @@
 import React, { useState } from 'react';
 import { 
-  User, 
   ShieldCheck, 
   Star, 
   Award, 
   TrendingUp, 
-  Settings, 
-  Phone, 
   Globe, 
   X, 
-  Check, 
-  Sparkles, 
-  Bike, 
-  Car,
-  BellRing,
-  HelpCircle,
-  LogOut,
-  Zap,
-  Wallet,
+  LogOut, 
+  Zap, 
+  Wallet, 
   Plus
 } from 'lucide-react';
-import { DriverProfile, VehicleType } from '../types';
+import { DriverProfile } from '../types';
 
 interface DriverProfileModalProps {
   driver: DriverProfile;

@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { 
   ShieldCheck, 
-  ShieldAlert, 
   UploadCloud, 
   CheckCircle2, 
   Clock, 
@@ -10,10 +9,7 @@ import {
   Bike, 
   Phone, 
   X, 
-  Sparkles, 
-  AlertCircle,
-  ArrowRight,
-  UserCheck
+  ArrowRight
 } from 'lucide-react';
 import confetti from 'canvas-confetti';
 import { DriverProfile, VehicleType, KycDoc } from '../types';

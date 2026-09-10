@@ -7,12 +7,7 @@ import {
   Download, 
   Share2, 
   QrCode, 
-  Bike, 
-  Car, 
   Award, 
-  Sparkles,
-  Phone,
-  Calendar,
   AlertTriangle
 } from 'lucide-react';
 import { DriverProfile } from '../types';

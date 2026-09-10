@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { KeyRound, Check, X, ShieldAlert, Sparkles, HelpCircle } from 'lucide-react';
+import { KeyRound, Check, X } from 'lucide-react';
 import { soundManager } from '../utils/audio';
 
 interface OtpInputModalProps {

@@ -2,10 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { 
   Phone, 
   ArrowRight, 
-  ShieldCheck, 
   UserPlus, 
-  Lock, 
-  Sparkles, 
   CheckCircle2, 
   AlertCircle,
   Zap,
@@ -13,8 +10,7 @@ import {
   Bike,
   Car,
   ChevronRight,
-  Info,
-  BadgePercent,
+  Headphones,
   Settings
 } from 'lucide-react';
 import { DriverProfile } from '../types';
@@ -22,6 +18,7 @@ import { MASTER_ADMIN_PHONE, SUPER_ADMIN_DRIVER } from '../data/mockData';
 import { captainStorageService } from '../services/captainStorageService';
 import { soundManager } from '../utils/audio';
 import { useLanguage } from '../context/LanguageContext';
+import { HelpBottomSheet } from './HelpBottomSheet';
 import { 
   auth, 
   setupRecaptchaVerifier, 
@@ -42,12 +39,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   onLoginSuccess,
   onOpenRegister,
   onOpenAdmin,
-  onOpenPassengerApp,
-  onOpenSplitView,
   onOpenSettings
 }) => {
   const { t, currentLanguageInfo } = useLanguage();
-  const [phone, setPhone] = useState('9052931129');
+  const [phone, setPhone] = useState('');
   const [otpDigits, setOtpDigits] = useState<string[]>(['', '', '', '', '', '']);
   const [otpSent, setOtpSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
@@ -55,11 +50,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
   const [resendTimer, setResendTimer] = useState(30);
   const [confirmationResult, setConfirmationResult] = useState<ConfirmationResult | null>(null);
   const [isFirebaseOtpMode, setIsFirebaseOtpMode] = useState(false);
-  const [showTestAccounts, setShowTestAccounts] = useState(false);
+  const [showHelpSheet, setShowHelpSheet] = useState(false);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
   const cleanPhone = phone.trim().replace(/\D/g, '');
-  const isMasterAdmin = cleanPhone === MASTER_ADMIN_PHONE;
 
   // Countdown timer for Resend OTP (30 seconds)
   useEffect(() => {
@@ -124,18 +118,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
     setOtpDigits(newDigits);
     const nextFocusIdx = Math.min(pasted.length, 5);
     inputRefs.current[nextFocusIdx]?.focus();
-  };
-
-  // Quick preset phone number
-  const handleSelectPresetPhone = (presetPhone: string) => {
-    setPhone(presetPhone);
-    setErrorMsg('');
-  };
-
-  // Direct Master Admin Bypass
-  const handleDirectMasterAdminBypass = () => {
-    soundManager.playOtpSuccess();
-    onOpenAdmin();
   };
 
   // Send real SMS OTP via Firebase Phone Auth or Graceful Fallback
@@ -275,61 +257,73 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
       <div className="absolute bottom-0 right-0 w-80 h-80 bg-amber-600/5 blur-3xl pointer-events-none rounded-full" />
 
       {/* Top Header Bar */}
-      <header className="w-full max-w-md mx-auto pt-5 px-4 flex items-center justify-between z-10">
-        <div className="flex items-center gap-2">
-          <div className="w-9 h-9 rounded-xl bg-amber-400 text-zinc-950 font-black text-lg flex items-center justify-center shadow-lg shadow-amber-400/20">
+      <header className="w-full max-w-md mx-auto pt-4 px-4 flex items-center justify-between z-10">
+        {/* Brand Logo & Name */}
+        <div className="flex items-center gap-2.5">
+          <div className="w-10 h-10 rounded-2xl bg-amber-400 text-zinc-950 font-black text-xl flex items-center justify-center shadow-lg shadow-amber-400/25">
             S
           </div>
           <div>
-            <span className="font-black text-base tracking-tight text-zinc-100">Sawari</span>
-            <span className="text-amber-400 font-extrabold text-xs ml-1">PARTNER</span>
+            <div className="flex items-center gap-1.5">
+              <span className="font-black text-lg tracking-tight text-zinc-100">Sawari</span>
+              <span className="bg-amber-400 text-zinc-950 font-black text-[10px] px-1.5 py-0.5 rounded-md tracking-wider">
+                CAPTAIN
+              </span>
+            </div>
+            <p className="text-[10px] font-bold text-emerald-400 flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+              0% Commission Network
+            </p>
           </div>
         </div>
 
-        {/* Right Header Actions */}
+        {/* Right Header Actions: Language + Native Rapido Help Pill Button */}
         <div className="flex items-center gap-2">
           {onOpenSettings && (
             <button
               id="btn-login-settings"
               onClick={onOpenSettings}
               title={`Settings / ${t('change_language')}`}
-              className="p-1.5 px-2 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-400/50 rounded-xl text-xs font-bold text-amber-300 flex items-center gap-1 transition-all"
+              className="p-1.5 px-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 rounded-full text-xs font-bold text-zinc-300 flex items-center gap-1 transition-all"
             >
-              <Settings className="w-3.5 h-3.5 text-amber-400" />
+              <Settings className="w-3.5 h-3.5 text-zinc-400" />
               <span className="text-[11px] font-bold">{currentLanguageInfo.nativeName}</span>
             </button>
           )}
 
-          {/* Firebase Phone Auth & Zero Fee Tag */}
-          <div className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-900/90 border border-zinc-800 rounded-xl text-xs font-bold text-zinc-400 shadow-sm">
-            <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-            <span>0% Commission</span>
-          </div>
+          {/* Native Rapido Captain Style "🎧 Help" Pill Button */}
+          <button
+            id="btn-login-help"
+            onClick={() => setShowHelpSheet(true)}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 hover:border-amber-400/60 rounded-full text-xs font-bold text-zinc-100 transition-all shadow-sm active:scale-95 group"
+          >
+            <Headphones className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span>Help</span>
+          </button>
         </div>
       </header>
 
       {/* Main Login Card */}
-      <main className="w-full max-w-md mx-auto px-4 py-5 z-10 flex-1 flex flex-col justify-center">
+      <main className="w-full max-w-md mx-auto px-4 py-4 z-10 flex-1 flex flex-col justify-center">
         
-        {/* Hero Branding & 0% Commission Pass Overview */}
-        <div className="text-center mb-4">
-          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-400/10 border border-amber-400/30 rounded-full text-amber-300 text-xs font-black uppercase tracking-wider mb-2">
+        {/* Rapido Captain Clean Hero Heading */}
+        <div className="text-center mb-5">
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 bg-amber-400/10 border border-amber-400/25 rounded-full text-amber-300 text-xs font-black tracking-wide mb-2.5">
             <Zap className="w-3.5 h-3.5 text-amber-400 fill-amber-400" />
-            <span>⚡ 0% COMMISSION PLATFORM</span>
+            <span>KEEP 100% OF YOUR FARES</span>
           </div>
 
-          <h1 className="text-2xl sm:text-3xl font-black text-zinc-100 tracking-tight leading-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-zinc-100 tracking-tight">
             Captain Sign In
           </h1>
           <p className="text-xs sm:text-sm text-zinc-400 mt-1 max-w-xs mx-auto">
-            Zero commission ride hailing with affordable daily passes for captains.
+            Drive with daily passes. Zero commission on every ride.
           </p>
         </div>
 
         {/* 0% Commission Daily Pass Indicators */}
         <div className="grid grid-cols-3 gap-2 mb-4">
-          <div className="p-2.5 bg-zinc-900/90 border border-amber-400/30 rounded-2xl text-center shadow-md relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-8 h-8 bg-amber-400/10 rounded-bl-xl pointer-events-none" />
+          <div className="p-2.5 bg-zinc-900/90 border border-zinc-800 hover:border-amber-400/40 rounded-2xl text-center shadow-md relative overflow-hidden transition-colors">
             <div className="flex items-center justify-center gap-1 text-amber-400 font-black text-xs mb-0.5">
               <Bike className="w-3.5 h-3.5" />
               <span>Bike</span>
@@ -338,8 +332,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-tight">0% Fee</span>
           </div>
 
-          <div className="p-2.5 bg-zinc-900/90 border border-amber-400/30 rounded-2xl text-center shadow-md relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-8 h-8 bg-amber-400/10 rounded-bl-xl pointer-events-none" />
+          <div className="p-2.5 bg-zinc-900/90 border border-zinc-800 hover:border-amber-400/40 rounded-2xl text-center shadow-md relative overflow-hidden transition-colors">
             <div className="flex items-center justify-center gap-1 text-amber-400 font-black text-xs mb-0.5">
               <span className="text-xs">🛺</span>
               <span>Auto</span>
@@ -348,8 +341,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             <span className="text-[9px] font-bold text-emerald-400 uppercase tracking-tight">0% Fee</span>
           </div>
 
-          <div className="p-2.5 bg-zinc-900/90 border border-amber-400/30 rounded-2xl text-center shadow-md relative overflow-hidden">
-            <div className="absolute top-0 right-0 w-8 h-8 bg-amber-400/10 rounded-bl-xl pointer-events-none" />
+          <div className="p-2.5 bg-zinc-900/90 border border-zinc-800 hover:border-amber-400/40 rounded-2xl text-center shadow-md relative overflow-hidden transition-colors">
             <div className="flex items-center justify-center gap-1 text-amber-400 font-black text-xs mb-0.5">
               <Car className="w-3.5 h-3.5" />
               <span>Cab</span>
@@ -369,30 +361,17 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
             </div>
           )}
 
-          {/* STEP 1: Phone Number Input */}
+          {/* STEP 1: Clean Phone Number Input */}
           {!otpSent ? (
             <div className="space-y-4">
               <div>
-                <div className="flex items-center justify-between mb-1.5">
-                  <label className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
-                    Mobile Number (India)
-                  </label>
-                  {isMasterAdmin ? (
-                    <span className="text-[10px] text-amber-400 font-black flex items-center gap-1 animate-pulse">
-                      <Lock className="w-3 h-3" /> Master Admin Detected
-                    </span>
-                  ) : (
-                    <button 
-                      onClick={() => setShowTestAccounts(!showTestAccounts)}
-                      className="text-[10px] text-amber-400 font-bold hover:underline flex items-center gap-1"
-                    >
-                      <Info className="w-3 h-3" /> Test Numbers
-                    </button>
-                  )}
-                </div>
+                <label className="text-xs font-bold text-zinc-300 block mb-2">
+                  Enter Mobile Number
+                </label>
 
+                {/* Rapido style input with +91 prefix and clean border */}
                 <div className="flex gap-2">
-                  <div className="px-3.5 py-3 bg-zinc-950 border border-zinc-800 rounded-2xl text-sm font-black text-zinc-200 flex items-center gap-1.5 shadow-inner">
+                  <div className="px-3.5 py-3.5 bg-zinc-950 border border-zinc-700/80 rounded-2xl text-sm font-black text-zinc-200 flex items-center gap-1.5 shadow-inner select-none">
                     <span>🇮🇳</span>
                     <span>+91</span>
                   </div>
@@ -401,90 +380,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     type="tel"
                     maxLength={10}
                     value={phone}
-                    onChange={(e) => setPhone(e.target.value.replace(/\D/g, ''))}
+                    onChange={(e) => {
+                      setPhone(e.target.value.replace(/\D/g, ''));
+                      if (errorMsg) setErrorMsg('');
+                    }}
                     placeholder="Enter 10-digit number"
-                    className={`flex-1 bg-zinc-950 border rounded-2xl px-4 py-3 text-base font-mono font-bold text-zinc-100 focus:outline-none transition-all ${
-                      isMasterAdmin 
-                        ? 'border-amber-400/80 shadow-md shadow-amber-400/15 ring-1 ring-amber-400/30' 
-                        : 'border-zinc-700/80 focus:border-amber-400 focus:ring-1 focus:ring-amber-400/30'
-                    }`}
+                    className="flex-1 bg-zinc-950 border border-zinc-700/80 focus:border-amber-400 focus:ring-2 focus:ring-amber-400/25 rounded-2xl px-4 py-3.5 text-base font-mono font-bold text-zinc-100 focus:outline-none transition-all placeholder:text-zinc-600 placeholder:font-normal"
+                    autoFocus
                   />
                 </div>
               </div>
 
-              {/* Master Admin Direct One-Click Bypass Button */}
-              {isMasterAdmin && (
-                <button
-                  id="btn-master-admin-direct-bypass"
-                  onClick={handleDirectMasterAdminBypass}
-                  className="w-full py-3 bg-gradient-to-r from-amber-400 via-amber-300 to-amber-400 text-zinc-950 font-black rounded-2xl text-xs flex items-center justify-center gap-2 shadow-lg shadow-amber-400/20 active:scale-98 transition-transform"
-                >
-                  <Lock className="w-4 h-4 fill-current" />
-                  <span>OPEN SUPER ADMIN DASHBOARD (DIRECT BYPASS) →</span>
-                </button>
-              )}
-
-              {/* Collapsible Test Numbers Helper */}
-              {showTestAccounts && (
-                <div className="p-3 bg-zinc-950/90 border border-zinc-800 rounded-2xl text-xs space-y-2 animate-in fade-in">
-                  <p className="text-[11px] font-bold text-zinc-300 flex items-center gap-1">
-                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                    Standard Test Phone Numbers (Zero SMS Cost):
-                  </p>
-                  <div className="grid grid-cols-2 gap-1.5">
-                    <button
-                      onClick={() => handleSelectPresetPhone('9052931129')}
-                      className="p-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-700/60 rounded-xl text-left transition-colors"
-                    >
-                      <span className="text-amber-400 font-mono font-bold block text-[11px]">9052931129</span>
-                      <span className="text-[9px] text-zinc-400">Master Super Admin</span>
-                    </button>
-                    <button
-                      onClick={() => handleSelectPresetPhone('9999999999')}
-                      className="p-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-700/60 rounded-xl text-left transition-colors"
-                    >
-                      <span className="text-emerald-400 font-mono font-bold block text-[11px]">9999999999</span>
-                      <span className="text-[9px] text-zinc-400">Firebase Test Number</span>
-                    </button>
-                    <button
-                      onClick={() => handleSelectPresetPhone('9876543210')}
-                      className="p-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-700/60 rounded-xl text-left transition-colors"
-                    >
-                      <span className="text-sky-400 font-mono font-bold block text-[11px]">9876543210</span>
-                      <span className="text-[9px] text-zinc-400">Ramesh (Bike Captain)</span>
-                    </button>
-                    <button
-                      onClick={() => handleSelectPresetPhone('9123456789')}
-                      className="p-2 bg-zinc-900 hover:bg-zinc-850 border border-zinc-700/60 rounded-xl text-left transition-colors"
-                    >
-                      <span className="text-purple-400 font-mono font-bold block text-[11px]">9123456789</span>
-                      <span className="text-[9px] text-zinc-400">Mohd. Arif (Auto)</span>
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Send SMS OTP Button */}
+              {/* Rapido Style Clean Yellow "Next / Get OTP" Button */}
               <button
                 id="btn-send-login-otp"
                 onClick={handleSendOtp}
-                disabled={isLoading}
-                className="w-full py-3.5 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-98 disabled:opacity-50"
+                disabled={isLoading || cleanPhone.length < 10}
+                className="w-full py-4 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black rounded-2xl text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-400/20 active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <div className="flex items-center gap-2">
                     <div className="w-4 h-4 border-2 border-zinc-950 border-t-transparent rounded-full animate-spin" />
-                    <span>Sending SMS Code...</span>
+                    <span>Sending OTP...</span>
                   </div>
                 ) : (
                   <>
-                    <span>
-                      {isMasterAdmin ? 'VERIFY MASTER ADMIN (+91 9052931129)' : 'SEND FREE SMS OTP'}
-                    </span>
+                    <span>Next / Get OTP</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
               </button>
+
+              <p className="text-[11px] text-center text-zinc-500 leading-relaxed px-2">
+                By continuing, you agree to Sawari Partner Terms of Service & Privacy Policy.
+              </p>
             </div>
           ) : (
             /* STEP 2: 6-Digit Real OTP Input Boxes */
@@ -492,7 +421,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
               <div className="flex items-center justify-between">
                 <div>
                   <label className="text-xs font-bold text-zinc-300 uppercase tracking-wider block">
-                    Enter 6-Digit Verification Code
+                    Enter 6-Digit OTP
                   </label>
                   <p className="text-[11px] text-zinc-400 mt-0.5">
                     Sent to <strong className="text-amber-400 font-mono">+91 {phone}</strong>
@@ -505,24 +434,9 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   }}
                   className="text-xs text-amber-400 hover:underline font-bold"
                 >
-                  Change
+                  Change Number
                 </button>
               </div>
-
-              {isMasterAdmin && (
-                <div className="p-2.5 bg-amber-400/15 border border-amber-400/40 rounded-xl text-xs text-amber-300 flex items-center justify-between">
-                  <span className="flex items-center gap-1.5">
-                    <Lock className="w-4 h-4 text-amber-400 flex-shrink-0" />
-                    <span>Master Super Admin Phone Detected</span>
-                  </span>
-                  <button
-                    onClick={handleDirectMasterAdminBypass}
-                    className="px-2 py-0.5 bg-amber-400 text-zinc-950 font-black text-[10px] rounded-lg hover:bg-amber-300"
-                  >
-                    Direct Enter →
-                  </button>
-                </div>
-              )}
 
               {/* 6-Digit Individual OTP Input Blocks */}
               <div className="flex items-center justify-between gap-1.5 sm:gap-2" onPaste={handlePaste}>
@@ -557,7 +471,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                     className="text-amber-400 hover:underline font-bold flex items-center gap-1 active:scale-95 transition-transform"
                   >
                     <RotateCcw className="w-3.5 h-3.5" />
-                    <span>Resend OTP SMS</span>
+                    <span>Resend OTP</span>
                   </button>
                 )}
 
@@ -571,7 +485,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                 id="btn-verify-login-otp"
                 onClick={handleVerifyOtp}
                 disabled={isLoading || otpDigits.join('').length < 6}
-                className="w-full py-3.5 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black rounded-2xl text-xs flex items-center justify-center gap-2 transition-all shadow-md active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="w-full py-4 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black rounded-2xl text-sm flex items-center justify-center gap-2 transition-all shadow-lg shadow-amber-400/20 active:scale-98 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {isLoading ? (
                   <div className="flex items-center gap-2">
@@ -580,65 +494,13 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
                   </div>
                 ) : (
                   <>
-                    <span>
-                      {isMasterAdmin ? 'VERIFY & ENTER SUPER ADMIN DASHBOARD →' : 'VERIFY & CONTINUE TO DASHBOARD'}
-                    </span>
+                    <span>Verify & Continue</span>
                     <CheckCircle2 className="w-4 h-4" />
                   </>
                 )}
               </button>
             </div>
           )}
-
-          {/* Live Multi-App Mode Shortcuts */}
-          <div className="grid grid-cols-2 gap-2 pt-1">
-            {onOpenPassengerApp && (
-              <button
-                onClick={onOpenPassengerApp}
-                className="p-3 bg-zinc-900/90 hover:bg-zinc-850 border border-amber-400/40 hover:border-amber-400 rounded-2xl flex items-center gap-2.5 text-left transition-all active:scale-95 shadow-sm group"
-              >
-                <span className="text-xl p-1 bg-amber-400/20 rounded-xl">📱</span>
-                <div>
-                  <p className="text-xs font-black text-zinc-100 group-hover:text-amber-400">Passenger App</p>
-                  <p className="text-[10px] text-zinc-400">Book real-time rides</p>
-                </div>
-              </button>
-            )}
-
-            {onOpenSplitView && (
-              <button
-                onClick={onOpenSplitView}
-                className="p-3 bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-700 hover:border-zinc-500 rounded-2xl flex items-center gap-2.5 text-left transition-all active:scale-95 shadow-sm group"
-              >
-                <span className="text-xl p-1 bg-emerald-400/20 rounded-xl">⚡</span>
-                <div>
-                  <p className="text-xs font-black text-zinc-100 group-hover:text-emerald-400">Split Dual View</p>
-                  <p className="text-[10px] text-zinc-400">Test both on 1 screen</p>
-                </div>
-              </button>
-            )}
-          </div>
-
-          {/* New Driver Partner Registration CTA */}
-          <div className="pt-2 border-t border-zinc-800/80">
-            <div className="p-3 bg-gradient-to-r from-amber-500/15 via-zinc-950 to-zinc-950 border border-amber-500/30 rounded-2xl flex items-center justify-between">
-              <div>
-                <p className="text-xs font-black text-zinc-100">New Partner with Sawari?</p>
-                <p className="text-[11px] text-zinc-400">Register & upload KYC documents</p>
-              </div>
-
-              <button
-                id="btn-open-driver-registration"
-                onClick={onOpenRegister}
-                className="px-3 py-2 bg-amber-400 hover:bg-amber-300 text-zinc-950 font-black rounded-xl text-xs flex items-center gap-1 shadow-sm active:scale-95 transition-transform"
-              >
-                <UserPlus className="w-3.5 h-3.5" />
-                <span>Register</span>
-              </button>
-            </div>
-          </div>
-
-
 
         </div>
 
@@ -660,10 +522,40 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({
 
       </main>
 
+      {/* Bottom Register & Upload KYC CTA - Kept at bottom */}
+      <div className="w-full max-w-md mx-auto px-4 pb-3">
+        <button
+          id="btn-open-driver-registration"
+          onClick={onOpenRegister}
+          className="w-full p-3.5 bg-zinc-900/90 hover:bg-zinc-850 border border-zinc-800 hover:border-amber-400/40 rounded-2xl flex items-center justify-between transition-all active:scale-98 shadow-sm group"
+        >
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-400/15 border border-amber-400/30 flex items-center justify-center text-amber-400 group-hover:bg-amber-400 group-hover:text-zinc-950 transition-colors">
+              <UserPlus className="w-4 h-4" />
+            </div>
+            <div className="text-left">
+              <p className="text-xs font-bold text-zinc-200 group-hover:text-amber-300 transition-colors">
+                New Partner? Register & upload KYC
+              </p>
+              <p className="text-[11px] text-zinc-400">
+                Start earning with zero commission today
+              </p>
+            </div>
+          </div>
+          <ChevronRight className="w-4 h-4 text-zinc-500 group-hover:text-amber-400 transition-colors" />
+        </button>
+      </div>
+
       {/* Footer */}
-      <footer className="w-full max-w-md mx-auto py-3 px-4 text-center text-[11px] text-zinc-500 border-t border-zinc-900">
+      <footer className="w-full max-w-md mx-auto py-2.5 px-4 text-center text-[11px] text-zinc-500 border-t border-zinc-900">
         Sawari Partner Platform • 0% Commission Network
       </footer>
+
+      {/* 🎧 Reusable Rapido Help & Support Bottom Sheet */}
+      <HelpBottomSheet
+        isOpen={showHelpSheet}
+        onClose={() => setShowHelpSheet(false)}
+      />
 
     </div>
   );

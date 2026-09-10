@@ -1,14 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Clock, 
-  Sparkles, 
   Zap, 
-  AlertTriangle, 
   RefreshCw, 
-  ShieldCheck, 
   ChevronRight,
-  Lock,
-  Unlock
+  Lock
 } from 'lucide-react';
 import { DailyPass, VehicleType, DAILY_PASS_PRICES } from '../types';
 

@@ -5,9 +5,6 @@ import {
   Clock, 
   Users, 
   TrendingUp, 
-  DollarSign, 
-  Percent, 
-  FileText, 
   CheckCircle2, 
   XCircle, 
   ArrowLeft, 
@@ -22,9 +19,7 @@ import {
   RefreshCw, 
   Send,
   AlertTriangle,
-  ChevronRight,
   CreditCard,
-  Building2,
   Settings
 } from 'lucide-react';
 import { DriverProfile, AdminStats, CompletedTripRecord, KycDoc } from '../types';

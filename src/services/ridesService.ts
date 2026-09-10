@@ -2,16 +2,12 @@ import {
   collection, 
   doc, 
   setDoc, 
-  getDoc, 
-  getDocs, 
-  updateDoc, 
   onSnapshot, 
   query, 
-  where,
-  deleteDoc
+  where
 } from 'firebase/firestore';
 import { db, auth } from '../utils/firebase';
-import { SharedRide, RideStatus, LatLng, DriverProfile, VehicleType } from '../types';
+import { SharedRide, LatLng, DriverProfile, VehicleType } from '../types';
 
 export enum OperationType {
   CREATE = 'create',

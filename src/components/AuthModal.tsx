@@ -3,7 +3,6 @@ import {
   X, 
   Phone, 
   ArrowRight, 
-  ShieldCheck, 
   CheckCircle2, 
   AlertCircle, 
   Lock,

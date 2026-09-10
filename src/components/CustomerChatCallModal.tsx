@@ -1,13 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Phone, 
-  PhoneCall, 
   PhoneOff, 
   MessageSquare, 
   Send, 
   X, 
-  User, 
-  Clock, 
   CheckCheck,
   ShieldCheck
 } from 'lucide-react';

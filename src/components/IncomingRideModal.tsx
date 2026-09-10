@@ -1,18 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { 
   MapPin, 
-  Navigation, 
   Flame, 
   Check, 
   X, 
-  Clock, 
   CreditCard, 
   Banknote, 
-  ShieldCheck, 
-  Zap,
-  ArrowRight,
-  Bike,
-  Car
+  Bike
 } from 'lucide-react';
 import { RideRequest } from '../types';
 import { soundManager } from '../utils/audio';

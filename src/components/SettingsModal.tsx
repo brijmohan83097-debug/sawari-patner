@@ -17,12 +17,9 @@ import {
   Phone, 
   MessageSquare, 
   Mail, 
-  ExternalLink, 
   ShieldCheck, 
-  Sparkles, 
-  X,
-  Radio,
-  Save,
+  X, 
+  Save, 
   LogIn
 } from 'lucide-react';
 import { DriverProfile, VehicleType } from '../types';

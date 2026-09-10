@@ -7,7 +7,6 @@ import {
   RefreshCw, 
   Eye, 
   X, 
-  AlertCircle,
   FileText
 } from 'lucide-react';
 import { CameraCaptureModal } from './CameraCaptureModal';

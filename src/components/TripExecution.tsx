@@ -9,15 +9,11 @@ import {
   KeyRound, 
   Gauge, 
   Clock, 
-  ChevronRight,
   AlertTriangle,
   Play,
   Pause,
-  ExternalLink,
-  Flame,
   Compass,
-  ArrowUpRight,
-  Sparkles
+  ArrowUpRight
 } from 'lucide-react';
 import { RideRequest, TripStep } from '../types';
 import { getActiveNavigationTarget, openGoogleMapsTurnByTurn, getGoogleMapsNavigationUrl } from '../utils/navigation';

@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Camera, RefreshCw, X, Check, Image as ImageIcon, AlertCircle } from 'lucide-react';
+import { Camera, RefreshCw, X, Check, Image as ImageIcon } from 'lucide-react';
 
 interface CameraCaptureModalProps {
   title: string;
