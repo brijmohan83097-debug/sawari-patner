@@ -39,21 +39,21 @@ const HYDERABAD_FALLBACK: LatLng = { lat: 17.3850, lng: 78.4867 };
 
 const TILE_LAYERS: Record<TileStyle, { url: string; attribution: string; name: string; tileClass: string }> = {
   night: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
     name: 'Night Navigation',
     tileClass: 'leaflet-tile-night'
   },
   day: {
-    url: 'https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-    name: 'Day Streets (OSM)',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    name: 'Day Streets (Voyager)',
     tileClass: 'leaflet-tile-light'
   },
   hot: {
-    url: 'https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png',
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors, Tiles style by Humanitarian OpenStreetMap Team',
-    name: 'Detailed Road Network (HOT)',
+    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
+    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    name: 'Detailed Roads (Voyager)',
     tileClass: 'leaflet-tile-light'
   }
 };

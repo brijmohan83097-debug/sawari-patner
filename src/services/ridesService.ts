@@ -58,7 +58,7 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
 
   if (errMsg.includes('Missing or insufficient permissions') || errMsg.includes('permission-denied') || errCode === 'permission-denied') {
     console.error('Firestore Permission Error: ', JSON.stringify(errInfo));
-    throw new Error(JSON.stringify(errInfo));
+    // Gracefully handle in local fallback mode without crashing the applet
   } else if (errCode === 'unavailable' || errMsg.includes('offline') || errMsg.includes('Could not reach Cloud Firestore')) {
     console.warn(`Firestore currently offline for ${operationType} on ${path}. Operating in local cache mode.`);
   } else {

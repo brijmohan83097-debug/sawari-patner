@@ -115,11 +115,11 @@ export const PassengerAppView: React.FC<PassengerAppViewProps> = ({
       attributionControl: false
     });
 
-    // 100% Free OpenStreetMap tile layer (0 API Key required)
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-      maxZoom: 19,
+    // 100% Reliable CARTO Voyager tile layer (0 API Key required, no 403 blocks)
+    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
+      maxZoom: 20,
       subdomains: 'abcd',
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
     }).addTo(map);
 
     mapInstanceRef.current = map;

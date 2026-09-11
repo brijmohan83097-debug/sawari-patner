@@ -212,47 +212,64 @@ function AppContent() {
 
   // Real-time listener for completed rides from Firestore for Admin & Driver stats
   useEffect(() => {
-    const unsubscribe = subscribeToCompletedRides((rides) => {
-      if (rides && rides.length > 0) {
-        const mappedRecords: CompletedTripRecord[] = rides.map(r => ({
-          id: `TRIP-${r.id}`,
-          rideId: r.id,
-          date: 'Today',
-          time: new Date(r.completedAt || r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          customerName: r.passengerName,
-          pickupAddress: r.pickupAddress,
-          dropAddress: r.dropAddress,
-          distanceKm: r.distanceKm,
-          durationMin: r.estimatedTimeMin,
-          grossFare: r.fare,
-          platformFee: 0,
-          captainEarning: r.captainEarning || r.fare,
-          paymentMode: r.paymentMode,
-          vehicleType: r.vehicleType,
-          customerRating: r.rating || 5,
-          status: 'completed'
-        }));
-        setTripHistory(mappedRecords);
-      }
-    });
+    let unsubscribe: (() => void) | null = null;
+    try {
+      unsubscribe = subscribeToCompletedRides((rides) => {
+        try {
+          if (rides && Array.isArray(rides) && rides.length > 0) {
+            const mappedRecords: CompletedTripRecord[] = rides.map(r => ({
+              id: `TRIP-${r.id}`,
+              rideId: r.id,
+              date: 'Today',
+              time: new Date(r.completedAt || r.createdAt || Date.now()).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              customerName: r.passengerName || 'Passenger',
+              pickupAddress: r.pickupAddress || 'Pickup Point',
+              dropAddress: r.dropAddress || 'Drop Point',
+              distanceKm: r.distanceKm || 0,
+              durationMin: r.estimatedTimeMin || 0,
+              grossFare: r.fare || 0,
+              platformFee: 0,
+              captainEarning: r.captainEarning || r.fare || 0,
+              paymentMode: r.paymentMode || 'CASH',
+              vehicleType: r.vehicleType || 'bike',
+              customerRating: r.rating || 5,
+              status: 'completed'
+            }));
+            setTripHistory(mappedRecords);
+          }
+        } catch (e) {
+          console.warn('Error processing completed rides update:', e);
+        }
+      });
+    } catch (err) {
+      console.warn('Failed to subscribe to completed rides:', err);
+    }
 
     return () => {
-      unsubscribe();
+      if (unsubscribe) {
+        try { unsubscribe(); } catch {}
+      }
     };
   }, []);
 
   // Synchronize dynamic admin metrics strictly with real fleet & rides
   useEffect(() => {
-    const onlineCount = allDrivers.filter(d => d.currentDutyStatus === 'online').length;
-    const pendingKyc = allDrivers.filter(d => d.kycStatus === 'pending').length;
-    const grossVolume = tripHistory.reduce((acc, t) => acc + (t.grossFare || 0), 0);
-    setAdminStats(prev => ({
-      ...prev,
-      totalRides: tripHistory.length,
-      totalGrossVolume: grossVolume,
-      activeOnlineDrivers: onlineCount,
-      pendingKycApprovals: pendingKyc
-    }));
+    try {
+      const validDrivers = Array.isArray(allDrivers) ? allDrivers.filter(Boolean) : [];
+      const validTrips = Array.isArray(tripHistory) ? tripHistory.filter(Boolean) : [];
+      const onlineCount = validDrivers.filter(d => d?.currentDutyStatus === 'online').length;
+      const pendingKyc = validDrivers.filter(d => d?.kycStatus === 'pending').length;
+      const grossVolume = validTrips.reduce((acc, t) => acc + (t?.grossFare || 0), 0);
+      setAdminStats(prev => ({
+        ...prev,
+        totalRides: validTrips.length,
+        totalGrossVolume: grossVolume,
+        activeOnlineDrivers: onlineCount,
+        pendingKycApprovals: pendingKyc
+      }));
+    } catch (err) {
+      console.warn('Error synchronizing admin metrics:', err);
+    }
   }, [allDrivers, tripHistory]);
   const [transactions, setTransactions] = useState<WalletTransaction[]>(() => {
     try {
@@ -406,11 +423,11 @@ function AppContent() {
 
   // Manual Trigger for incoming ride (test button)
   const handleTriggerTestRide = () => {
-    if (driver.kycStatus !== 'approved') {
+    if (driver?.kycStatus !== 'approved') {
       setShowKycModal(true);
       return;
     }
-    const hasActivePass = Boolean(driver.activePass && driver.activePass.expiresAt > Date.now());
+    const hasActivePass = Boolean(driver?.activePass && driver.activePass.expiresAt > Date.now());
     if (!hasActivePass) {
       setShowDailyPassModal(true);
       return;
@@ -436,7 +453,9 @@ function AppContent() {
       activePass: pass
     }));
 
-    setAllDrivers(prev => prev.map(d => d.id === driver.id ? { ...d, activePass: pass } : d));
+    if (driver?.id) {
+      setAllDrivers(prev => prev.map(d => (d && d.id === driver.id) ? { ...d, activePass: pass } : d));
+    }
 
     // Update Platform Admin Metrics for subscription revenue
     setAdminStats(prev => ({
@@ -1089,18 +1108,18 @@ function AppContent() {
         )}
 
         {/* Verification Status Warning Pill if not approved */}
-        {driver.kycStatus !== 'approved' && (
+        {driver?.kycStatus !== 'approved' && (
           <div className="mx-3.5 mt-2 p-3 bg-zinc-900/90 border border-amber-500/40 rounded-2xl flex items-center justify-between shadow-md">
             <div className="flex items-center gap-2">
               <span className="p-1 rounded-lg bg-amber-500/20 text-amber-400">
-                {driver.kycStatus === 'pending' ? '⏳' : '⚠️'}
+                {driver?.kycStatus === 'pending' ? '⏳' : '⚠️'}
               </span>
               <div>
                 <p className="text-xs font-black text-zinc-100">
-                  {driver.kycStatus === 'pending' ? 'KYC Verification Under Review' : 'KYC Documents Rejected'}
+                  {driver?.kycStatus === 'pending' ? 'KYC Verification Under Review' : 'KYC Documents Rejected'}
                 </p>
                 <p className="text-[10px] text-zinc-400">
-                  {driver.kycStatus === 'pending'
+                  {driver?.kycStatus === 'pending'
                     ? 'Documents under admin review. Duty locked.'
                     : 'Please review and resubmit documents.'}
                 </p>
@@ -1143,15 +1162,15 @@ function AppContent() {
               {/* Duty Toggle Switch with Daily Pass Subscription Gate */}
               <DutyToggle
                 isOnline={isOnline}
-                isKycVerified={driver.kycStatus === 'approved'}
-                hasActivePass={Boolean(driver.activePass && driver.activePass.expiresAt > Date.now())}
+                isKycVerified={driver?.kycStatus === 'approved'}
+                hasActivePass={Boolean(driver?.activePass && driver.activePass.expiresAt > Date.now())}
                 selectedVehicle={selectedVehicle}
                 onToggle={(next) => {
-                  if (next && driver.kycStatus !== 'approved') {
+                  if (next && driver?.kycStatus !== 'approved') {
                     setShowKycModal(true);
                     return;
                   }
-                  const hasPass = Boolean(driver.activePass && driver.activePass.expiresAt > Date.now());
+                  const hasPass = Boolean(driver?.activePass && driver.activePass.expiresAt > Date.now());
                   if (next && !hasPass) {
                     setShowDailyPassModal(true);
                     return;
@@ -1163,7 +1182,7 @@ function AppContent() {
               />
 
               {/* Active Daily Pass Countdown Timer & Status */}
-              {driver.activePass && driver.activePass.expiresAt > Date.now() ? (
+              {driver?.activePass && driver.activePass.expiresAt > Date.now() ? (
                 <ActivePassCountdownCard
                   activePass={driver.activePass}
                   selectedVehicle={selectedVehicle}

@@ -10,9 +10,13 @@ export const SUPER_ADMIN_RAW_PHONE = '9052931129';
  * Validates if the phone number belongs to the Super Admin (+919052931129).
  */
 export function isSuperAdminPhone(phone?: string | null): boolean {
-  if (!phone) return false;
-  const digits = phone.replace(/\D/g, '');
-  return digits === '9052931129' || digits === '919052931129';
+  try {
+    if (!phone || typeof phone !== 'string') return false;
+    const digits = phone.replace(/\D/g, '');
+    return digits === '9052931129' || digits === '919052931129';
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -20,6 +24,11 @@ export function isSuperAdminPhone(phone?: string | null): boolean {
  * Strictly checks the verified phone number (+919052931129).
  */
 export function isSuperAdminUser(user?: { phone?: string | null } | null): boolean {
-  if (!user || !user.phone) return false;
-  return isSuperAdminPhone(user.phone);
+  try {
+    if (!user || typeof user !== 'object') return false;
+    if (!user.phone || typeof user.phone !== 'string') return false;
+    return isSuperAdminPhone(user.phone);
+  } catch {
+    return false;
+  }
 }
