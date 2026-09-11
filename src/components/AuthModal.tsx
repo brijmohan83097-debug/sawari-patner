@@ -11,7 +11,9 @@ import {
   Info
 } from 'lucide-react';
 import { DriverProfile } from '../types';
-import { MOCK_DRIVERS, MASTER_ADMIN_PHONE } from '../data/mockData';
+import { INITIAL_DRIVER } from '../data/mockData';
+import { isSuperAdminPhone, SUPER_ADMIN_PHONE, SUPER_ADMIN_RAW_PHONE } from '../utils/adminAuth';
+import { captainStorageService } from '../services/captainStorageService';
 import { soundManager } from '../utils/audio';
 import { 
   auth, 
@@ -46,7 +48,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const [showTestAccounts, setShowTestAccounts] = useState(false);
 
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const isMasterAdmin = phone.trim().replace(/\D/g, '') === MASTER_ADMIN_PHONE;
+  const isMasterAdmin = isSuperAdminPhone(phone);
 
   // Countdown timer for Resend OTP (30 seconds)
   useEffect(() => {
@@ -187,15 +189,18 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
       soundManager.playOtpSuccess();
 
-      if (clean === MASTER_ADMIN_PHONE) {
+      if (isSuperAdminPhone(clean)) {
         onAdminLogin();
         return;
       }
 
       // Match with existing driver or default
-      const matched = MOCK_DRIVERS.find(d => d.phone.replace(/\D/g, '').includes(clean)) || {
-        ...MOCK_DRIVERS[0],
-        phone: clean,
+      const stored = await captainStorageService.getAllCaptains();
+      const matched = stored.find(d => d.phone.replace(/\D/g, '').includes(clean)) || {
+        ...INITIAL_DRIVER,
+        id: `DRV-${clean.slice(-4)}`,
+        badgeId: `SW-${clean.slice(-4)}`,
+        phone: `+91 ${clean}`,
         name: `Captain (+91 ${clean.slice(0, 5)}...)`
       };
 
@@ -426,42 +431,20 @@ export const AuthModal: React.FC<AuthModalProps> = ({
             </div>
           )}
 
-          {/* Quick Demo Switcher */}
-          <div className="bg-zinc-950 border border-zinc-800/80 rounded-2xl p-3 space-y-2">
-            <span className="text-[10px] text-zinc-500 font-black uppercase tracking-wider block">
-              1-Tap Demo Switcher
-            </span>
-            <div className="grid grid-cols-1 gap-1.5">
-              {MOCK_DRIVERS.map(d => (
-                <button
-                  key={d.id}
-                  onClick={() => onLoginSuccess(d)}
-                  className="p-1.5 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 rounded-xl flex items-center justify-between text-left transition-colors"
-                >
-                  <div className="flex items-center gap-2 min-w-0">
-                    <img src={d.avatar} alt={d.name} className="w-6 h-6 rounded-full object-cover border border-amber-400" />
-                    <span className="text-xs font-bold text-zinc-200 truncate">{d.name}</span>
-                  </div>
-                  <span className="text-[10px] text-zinc-400 font-mono">{d.phone}</span>
-                </button>
-              ))}
+          {/* Super Admin Access restricted ONLY to +919052931129 */}
+          {isMasterAdmin && (
+            <div className="bg-zinc-950 border border-amber-500/40 rounded-2xl p-3 flex items-center justify-between shadow-sm">
+              <span className="text-[10px] text-zinc-400 font-semibold">Super Admin ({SUPER_ADMIN_PHONE})</span>
+              <button
+                id="btn-login-as-admin"
+                onClick={onAdminLogin}
+                className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 hover:underline"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>Super Admin Console →</span>
+              </button>
             </div>
-
-            {/* Master Admin Access if 9052931129 is selected */}
-            {isMasterAdmin && (
-              <div className="pt-2 border-t border-zinc-800/80 flex items-center justify-between">
-                <span className="text-[10px] text-zinc-500 font-semibold">Master Admin System</span>
-                <button
-                  id="btn-login-as-admin"
-                  onClick={onAdminLogin}
-                  className="text-xs font-bold text-amber-400 hover:text-amber-300 flex items-center gap-1 hover:underline"
-                >
-                  <Lock className="w-3.5 h-3.5" />
-                  <span>Admin Management Panel →</span>
-                </button>
-              </div>
-            )}
-          </div>
+          )}
 
         </div>
 

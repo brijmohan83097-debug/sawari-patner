@@ -10,13 +10,8 @@ import {
   Auth
 } from 'firebase/auth';
 import { 
-  initializeFirestore,
   getFirestore, 
-  Firestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
-  doc,
-  getDocFromServer
+  Firestore
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
 
@@ -29,38 +24,12 @@ try {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
 
-    // Initialize Firestore with reliable long-polling and multi-tab persistent cache
-    // This prevents [code=unavailable] WebChannel/WebSocket disconnect errors in container and iframe sandboxes
-    try {
-      db = initializeFirestore(
-        app, 
-        {
-          experimentalForceLongPolling: true,
-          localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() })
-        },
-        firebaseConfig.firestoreDatabaseId || undefined
-      );
-    } catch {
-      db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
-    }
+    // Initialize Firestore using canonical database ID per Firebase skill guidelines:
+    // export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
+    db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
   }
 } catch (e) {
   console.warn('Firebase initialization notice:', e);
-}
-
-// Test connection on startup per Firebase skill guidelines
-if (db) {
-  testConnection(db);
-}
-
-async function testConnection(firestoreDb: Firestore) {
-  try {
-    await getDocFromServer(doc(firestoreDb, 'test', 'connection'));
-  } catch (error) {
-    if (error instanceof Error && error.message.includes('the client is offline')) {
-      console.warn('Firestore client operating in offline cache mode.');
-    }
-  }
 }
 
 /**
@@ -87,7 +56,10 @@ export function setupRecaptchaVerifier(
       } catch {
         // ignore
       }
+      delete win.recaptchaVerifier;
     }
+
+    el.innerHTML = '';
 
     const verifier = new RecaptchaVerifier(auth, containerId, {
       size: 'invisible',

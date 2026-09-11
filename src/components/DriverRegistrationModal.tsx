@@ -202,7 +202,7 @@ export const DriverRegistrationModal: React.FC<DriverRegistrationModalProps> = (
         bloodGroup,
         emergencyContact: emergencyContact || '+91 98765 00000 (Family)',
         currentDutyStatus: 'offline',
-        currentLocation: { lat: 12.9352, lng: 77.6245 },
+        currentLocation: { lat: 17.3850, lng: 78.4867 },
         kycDocs
       };
 
@@ -660,7 +660,7 @@ export const DriverRegistrationModal: React.FC<DriverRegistrationModalProps> = (
                 </div>
 
                 <p className="text-[11px] text-zinc-400 pt-1 border-t border-zinc-800">
-                  Tip: Use the <span className="text-amber-400 font-bold">Admin Management Panel</span> to approve this registration instantly for testing!
+                  Documents submitted for verification. Super admin reviews submissions within 24 hours.
                 </p>
               </div>
 

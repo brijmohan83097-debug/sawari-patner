@@ -2,22 +2,18 @@ import React from 'react';
 import { 
   ShieldCheck, 
   ShieldAlert,
-  Wallet, 
   Volume2, 
   VolumeX, 
   Bike, 
   Car, 
   Clock, 
-  Award, 
-  Lock, 
-  LogIn, 
-  LogOut, 
-  Settings
+  Award,
+  Headphones
 } from 'lucide-react';
 import { DriverProfile, VehicleType } from '../types';
-import { MASTER_ADMIN_PHONE } from '../data/mockData';
 import { soundManager } from '../utils/audio';
 import { useLanguage } from '../context/LanguageContext';
+import { HelpBottomSheet } from './HelpBottomSheet';
 
 interface HeaderProps {
   driver: DriverProfile;
@@ -26,39 +22,25 @@ interface HeaderProps {
   selectedVehicle: VehicleType;
   onVehicleChange: (type: VehicleType) => void;
   onOpenProfile: () => void;
-  onOpenWallet: () => void;
-  onOpenKyc: () => void;
-  onOpenIdCard: () => void;
-  onOpenDailyPass: () => void;
-  onOpenAdmin: () => void;
-  onOpenAuth: () => void;
-  onOpenSettings?: () => void;
-  onOpenPassengerApp?: () => void;
-  onOpenSplitView?: () => void;
-  onLogout?: () => void;
+  onOpenIdCard?: () => void;
+  onOpenDailyPass?: () => void;
+  onOpenHelp?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
   driver,
   isOnline,
-  walletBalance,
   selectedVehicle,
   onVehicleChange,
   onOpenProfile,
-  onOpenWallet,
-  onOpenKyc,
   onOpenIdCard,
   onOpenDailyPass,
-  onOpenAdmin,
-  onOpenAuth,
-  onOpenSettings,
-  onOpenPassengerApp,
-  onOpenSplitView,
-  onLogout
+  onOpenHelp
 }) => {
-  const { t, currentLanguageInfo } = useLanguage();
+  const { t } = useLanguage();
   const [soundEnabled, setSoundEnabled] = React.useState(soundManager.isEnabled());
   const [imgError, setImgError] = React.useState(false);
+  const [showHelpSheet, setShowHelpSheet] = React.useState(false);
 
   React.useEffect(() => {
     setImgError(false);
@@ -71,10 +53,6 @@ export const Header: React.FC<HeaderProps> = ({
 
   const isApproved = driver.kycStatus === 'approved';
   const isPending = driver.kycStatus === 'pending';
-  const isRejected = driver.kycStatus === 'rejected';
-  const isSuperAdmin = driver?.phone?.replace(/\D/g, '').includes(MASTER_ADMIN_PHONE) || 
-                       driver?.email === 'brijmohan83097@gmail.com' ||
-                       driver?.id === 'super-admin-01';
 
   const getInitials = (name?: string): string => {
     if (!name || !name.trim()) return 'C';
@@ -110,30 +88,34 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
 
           {/* Quick ID Card badge button */}
-          <button
-            id="btn-header-id-card"
-            onClick={onOpenIdCard}
-            title="View Driver ID Card"
-            className="hidden lg:flex items-center gap-1 px-2 py-1 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 rounded-lg text-[11px] font-bold text-amber-300 transition-colors"
-          >
-            <Award className="w-3.5 h-3.5 text-amber-400" />
-            <span>ID: {driver.badgeId}</span>
-          </button>
+          {onOpenIdCard && (
+            <button
+              id="btn-header-id-card"
+              onClick={onOpenIdCard}
+              title="View Driver ID Card"
+              className="hidden lg:flex items-center gap-1 px-2 py-1 bg-amber-400/10 hover:bg-amber-400/20 border border-amber-400/30 rounded-lg text-[11px] font-bold text-amber-300 transition-colors"
+            >
+              <Award className="w-3.5 h-3.5 text-amber-400" />
+              <span>ID: {driver.badgeId}</span>
+            </button>
+          )}
 
           {/* Quick Pass Status Button */}
-          <button
-            id="btn-header-daily-pass"
-            onClick={onOpenDailyPass}
-            title="Daily Active Pass (0% Commission)"
-            className={`hidden sm:flex items-center gap-1 px-2 py-1 border rounded-lg text-[11px] font-black transition-colors ${
-              driver.activePass && driver.activePass.expiresAt > Date.now()
-                ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
-                : 'bg-amber-500/15 border-amber-400/40 text-amber-300 animate-pulse'
-            }`}
-          >
-            <span className="text-xs">⚡</span>
-            <span>{driver.activePass && driver.activePass.expiresAt > Date.now() ? t('pass_active') : t('buy_pass')}</span>
-          </button>
+          {onOpenDailyPass && (
+            <button
+              id="btn-header-daily-pass"
+              onClick={onOpenDailyPass}
+              title="Daily Active Pass (0% Commission)"
+              className={`hidden sm:flex items-center gap-1 px-2 py-1 border rounded-lg text-[11px] font-black transition-colors ${
+                driver.activePass && driver.activePass.expiresAt > Date.now()
+                  ? 'bg-emerald-500/15 border-emerald-500/30 text-emerald-400'
+                  : 'bg-amber-500/15 border-amber-400/40 text-amber-300 animate-pulse'
+              }`}
+            >
+              <span className="text-xs">⚡</span>
+              <span>{driver.activePass && driver.activePass.expiresAt > Date.now() ? t('pass_active') : t('buy_pass')}</span>
+            </button>
+          )}
         </div>
 
         {/* Center: Vehicle Mode Selector */}
@@ -178,59 +160,35 @@ export const Header: React.FC<HeaderProps> = ({
           </button>
         </div>
 
-        {/* Right Controls: Profile Avatar (Replaces balance), Wallet, Settings, Sound, Auth */}
+        {/* Right Controls: Essential Sound toggle, Help (🎧), and Captain Profile */}
         <div className="flex items-center gap-1.5 sm:gap-2">
 
-          {/* Passenger App Mode Switcher */}
-          {onOpenPassengerApp && (
-            <button
-              id="btn-header-passenger-app"
-              onClick={onOpenPassengerApp}
-              title="Switch to Passenger Rider App"
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-amber-400/40 hover:border-amber-400 rounded-xl text-xs font-black text-amber-300 transition-all active:scale-95 shadow-sm"
-            >
-              <span>📱</span>
-              <span className="hidden md:inline">{t('passenger_app')}</span>
-            </button>
-          )}
-
-          {/* Split Screen Dual Test Switcher */}
-          {onOpenSplitView && (
-            <button
-              id="btn-header-split-view"
-              onClick={onOpenSplitView}
-              title="Live Dual Device Split Screen (Passenger & Captain)"
-              className="hidden lg:flex items-center gap-1 px-2.5 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-700 rounded-xl text-xs font-bold text-zinc-300 hover:text-zinc-100 transition-all active:scale-95 shadow-sm"
-            >
-              <span>⚡</span>
-              <span>{t('split_view')}</span>
-            </button>
-          )}
-          
-          {/* Admin Dashboard Trigger - Strictly visible only to Master Super Admin */}
-          {isSuperAdmin && (
-            <button
-              id="btn-header-admin-dashboard"
-              onClick={onOpenAdmin}
-              title="Open Master Super Admin Operations Dashboard"
-              className="flex items-center gap-1 px-2.5 py-1.5 bg-amber-400/15 hover:bg-amber-400/25 border border-amber-400/50 rounded-xl text-xs font-black text-amber-300 hover:text-amber-200 transition-all active:scale-95 shadow-sm shadow-amber-400/10"
-            >
-              <Lock className="w-3.5 h-3.5 text-amber-400" />
-              <span className="hidden md:inline">{t('admin_panel')}</span>
-            </button>
-          )}
-
-          {/* Dedicated Captain Wallet Button */}
+          {/* Sound Toggle */}
           <button
-            id="btn-header-wallet"
-            onClick={onOpenWallet}
-            title="Sawari Captain Wallet & Passbook"
-            className="p-1.5 sm:p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-400/60 text-amber-400 hover:text-amber-300 transition-all flex items-center justify-center active:scale-95 shadow-sm"
+            id="btn-toggle-sound"
+            onClick={handleToggleSound}
+            title={soundEnabled ? 'Mute Alert Sounds' : 'Unmute Alert Sounds'}
+            className={`p-1.5 sm:p-2 rounded-xl border transition-colors ${
+              soundEnabled 
+                ? 'bg-zinc-900 border-zinc-800 text-amber-400 hover:border-amber-400/40' 
+                : 'bg-zinc-900/60 border-zinc-800/60 text-zinc-500'
+            }`}
           >
-            <Wallet className="w-4 h-4" />
+            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
 
-          {/* Profile & Account Avatar Button (Replaced hardcoded balance badge) */}
+          {/* Native Rapido Captain Style "🎧 Help" Button */}
+          <button
+            id="btn-header-help"
+            onClick={() => (onOpenHelp ? onOpenHelp() : setShowHelpSheet(true))}
+            title="Captain 24x7 Help & Support"
+            className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1.5 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-amber-400/60 rounded-xl text-xs font-bold text-zinc-100 transition-all shadow-sm active:scale-95 group"
+          >
+            <Headphones className="w-3.5 h-3.5 text-amber-400 group-hover:scale-110 transition-transform" />
+            <span className="hidden min-[380px]:inline text-xs font-bold">Help</span>
+          </button>
+
+          {/* Captain Profile & Account Avatar Button */}
           <button
             id="btn-header-profile-avatar"
             onClick={onOpenProfile}
@@ -276,59 +234,16 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </button>
 
-          {/* Dedicated Settings Button with Language Indicator */}
-          {onOpenSettings && (
-            <button
-              id="btn-header-settings"
-              onClick={onOpenSettings}
-              title={`Settings / ${t('change_language')}`}
-              className="p-1.5 sm:p-2 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-700/80 hover:border-amber-400/80 text-amber-400 hover:text-amber-300 transition-all flex items-center gap-1.5 shadow-sm active:scale-95"
-            >
-              <Settings className="w-4 h-4" />
-              <span className="hidden xl:inline text-[11px] font-bold text-zinc-200">
-                {currentLanguageInfo.nativeName}
-              </span>
-            </button>
-          )}
-
-          {/* Sound Toggle */}
-          <button
-            id="btn-toggle-sound"
-            onClick={handleToggleSound}
-            title={soundEnabled ? 'Mute Alert Sounds' : 'Unmute Alert Sounds'}
-            className={`p-1.5 sm:p-2 rounded-xl border transition-colors ${
-              soundEnabled 
-                ? 'bg-zinc-900 border-zinc-800 text-amber-400 hover:border-amber-400/40' 
-                : 'bg-zinc-900/60 border-zinc-800/60 text-zinc-500'
-            }`}
-          >
-            {soundEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
-          </button>
-
-          {/* Switch User / Auth modal */}
-          <button
-            id="btn-header-auth-switch"
-            onClick={onOpenAuth}
-            title="Switch Captain or Login"
-            className="p-1.5 sm:p-2 rounded-xl bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 text-zinc-400 hover:text-zinc-100 transition-colors"
-          >
-            <LogIn className="w-3.5 h-3.5" />
-          </button>
-
-          {/* Direct Logout Button */}
-          {onLogout && (
-            <button
-              id="btn-header-logout"
-              onClick={onLogout}
-              title="Log Out of Captain Account"
-              className="p-1.5 sm:p-2 rounded-xl bg-zinc-900 hover:bg-rose-950/40 border border-zinc-800 hover:border-rose-500/40 text-zinc-400 hover:text-rose-400 transition-colors"
-            >
-              <LogOut className="w-3.5 h-3.5" />
-            </button>
-          )}
-
         </div>
       </div>
+
+      {/* 🎧 Reusable Rapido Help & Support Bottom Sheet */}
+      <HelpBottomSheet
+        isOpen={showHelpSheet}
+        onClose={() => setShowHelpSheet(false)}
+        title="Captain Help & Support"
+        subtitle="24x7 Assistance for Sawari Captains"
+      />
     </header>
   );
 };

@@ -104,6 +104,10 @@ export const PassengerAppView: React.FC<PassengerAppViewProps> = ({
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
+    if ((mapContainerRef.current as any)._leaflet_id) {
+      delete (mapContainerRef.current as any)._leaflet_id;
+    }
+
     const map = L.map(mapContainerRef.current, {
       center: [pickup.coords.lat, pickup.coords.lng],
       zoom: 14,
@@ -121,7 +125,11 @@ export const PassengerAppView: React.FC<PassengerAppViewProps> = ({
     mapInstanceRef.current = map;
 
     return () => {
-      map.remove();
+      try {
+        map.remove();
+      } catch {
+        // ignore
+      }
       mapInstanceRef.current = null;
     };
   }, []);

@@ -2,83 +2,40 @@ import { DriverProfile, HeatmapZone, CompletedTripRecord, WalletTransaction, Dai
 
 export const MASTER_ADMIN_PHONE = '9052931129';
 
-export const SUPER_ADMIN_DRIVER: DriverProfile = {
-  id: 'DRV-ADMIN-001',
-  badgeId: 'SW-ADM-905',
-  name: 'Brijmohan (Super Admin)',
-  email: 'brijmohan83097@gmail.com',
-  phone: '9052931129',
-  avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+// Default clean captain profile (no mock data or dummy credentials)
+export const INITIAL_DRIVER: DriverProfile = {
+  id: 'DRV-NEW',
+  badgeId: 'SW-NEW',
+  name: 'New Captain',
+  email: '',
+  phone: '',
+  avatar: 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150&auto=format&fit=crop&q=80',
   vehicleType: 'bike',
-  vehicleModel: 'Hero Electric Optima / Royal Enfield 350',
-  vehicleNumber: 'KA 01 SA 9052',
+  vehicleModel: '',
+  vehicleNumber: '',
   city: 'Bengaluru',
   rating: 5.0,
-  totalTrips: 3420,
-  acceptanceRate: 99,
-  cancellationRate: 0.1,
-  isKycVerified: true,
-  kycStatus: 'approved',
-  joinedDate: 'Founding Partner',
-  upiId: 'brijmohan@okhdfcbank',
+  totalTrips: 0,
+  acceptanceRate: 100,
+  cancellationRate: 0,
+  isKycVerified: false,
+  kycStatus: 'pending',
+  joinedDate: 'Today',
+  upiId: '',
   bankAccount: {
-    accountNumber: '•••• •••• 9052',
-    ifsc: 'HDFC0001245',
-    bankName: 'HDFC Bank Ltd.'
+    accountNumber: '',
+    ifsc: '',
+    bankName: ''
   },
-  bloodGroup: 'O+ Positive',
-  emergencyContact: '+91 90529 31129 (Direct)',
-  currentDutyStatus: 'online',
-  currentLocation: { lat: 12.9352, lng: 77.6245 },
-  activePass: {
-    id: 'PASS-ADMIN-VIP',
-    driverId: 'DRV-ADMIN-001',
-    driverName: 'Brijmohan',
-    vehicleType: 'bike',
-    price: 0,
-    purchasedAt: Date.now(),
-    expiresAt: Date.now() + 365 * 24 * 60 * 60 * 1000,
-    paymentMethod: 'WALLET',
-    status: 'active',
-    hoursTotal: 8760
-  },
-  kycDocs: [
-    {
-      id: 'doc_dl',
-      title: 'Master Driving License (Admin)',
-      docNumber: 'DL-0420190090529',
-      status: 'verified',
-      verifiedOn: 'Direct Admin Clear',
-      expiryDate: '12 Nov 2040'
-    },
-    {
-      id: 'doc_rc',
-      title: 'Vehicle Registration (RC)',
-      docNumber: 'KA01SA9052',
-      status: 'verified',
-      verifiedOn: 'Direct Admin Clear'
-    },
-    {
-      id: 'doc_aadhaar',
-      title: 'Aadhaar Card UIDAI',
-      docNumber: '•••• •••• 9052',
-      status: 'verified',
-      verifiedOn: 'Direct Admin Clear'
-    },
-    {
-      id: 'doc_ins',
-      title: 'Commercial Vehicle Insurance',
-      docNumber: 'POL-ADMIN-VIP',
-      status: 'verified',
-      expiryDate: '28 Feb 2030'
-    }
-  ]
+  bloodGroup: '',
+  emergencyContact: '',
+  currentDutyStatus: 'offline',
+  currentLocation: { lat: 17.3850, lng: 78.4867 },
+  kycDocs: []
 };
 
-export const INITIAL_DRIVER: DriverProfile = SUPER_ADMIN_DRIVER;
-
-// All mock/dummy captain profiles (Rajesh Kumar, Suresh Gowda, Mohammed Farooq, Priya Sundaram) have been deleted.
-// Real captains are added dynamically via the live Onboarding flow and persisted in IndexedDB & Firestore.
+// All mock/dummy captain profiles and fallback arrays have been completely purged.
+// Real captains are loaded exclusively from live Firestore and persistent IndexedDB records.
 export const MOCK_DRIVERS: DriverProfile[] = [];
 
 export const HEATMAP_ZONES: HeatmapZone[] = [
@@ -137,165 +94,9 @@ export const HEATMAP_ZONES: HeatmapZone[] = [
 // Calculated strictly with Sawari 0% Commission + Daily Pass Subscription model:
 // Platform Fee = ₹0 (Zero Commission)
 // Captain Take-Home = 100% of gross bill + 100% of tips
-export const INITIAL_COMPLETED_TRIPS: CompletedTripRecord[] = [
-  {
-    id: 'TRIP-9901',
-    rideId: 'SW-83921',
-    date: 'Today',
-    time: '18:42',
-    customerName: 'Ananya Sharma',
-    pickupAddress: 'Nexus Mall, Koramangala',
-    dropAddress: 'HSR BDA Complex, 5th Main',
-    distanceKm: 4.8,
-    durationMin: 16,
-    grossFare: 120,
-    platformFee: 0, // ₹0 Commission
-    captainEarning: 120, // 100% of 120
-    paymentMode: 'ONLINE_UPI',
-    vehicleType: 'bike',
-    customerRating: 5,
-    status: 'completed'
-  },
-  {
-    id: 'TRIP-9902',
-    rideId: 'SW-83918',
-    date: 'Today',
-    time: '17:15',
-    customerName: 'Vikram Mehta',
-    pickupAddress: 'Sony World Junction, 80ft Rd',
-    dropAddress: 'Embassy GolfLinks Tech Park',
-    distanceKm: 6.2,
-    durationMin: 22,
-    grossFare: 160,
-    platformFee: 0, // ₹0 Commission
-    captainEarning: 160, // 100% of 160
-    paymentMode: 'CASH',
-    vehicleType: 'bike',
-    customerRating: 5,
-    status: 'completed'
-  },
-  {
-    id: 'TRIP-9903',
-    rideId: 'SW-83904',
-    date: 'Today',
-    time: '15:50',
-    customerName: 'Pooja Iyer',
-    pickupAddress: 'Forum South Mall, Hosur Rd',
-    dropAddress: 'Silk Board Flyover Metro Jn',
-    distanceKm: 3.5,
-    durationMin: 12,
-    grossFare: 90,
-    platformFee: 0, // ₹0 Commission
-    captainEarning: 90, // 100% of 90
-    paymentMode: 'ONLINE_UPI',
-    vehicleType: 'bike',
-    customerRating: 4,
-    status: 'completed'
-  },
-  {
-    id: 'TRIP-9894',
-    rideId: 'SW-83860',
-    date: 'Yesterday',
-    time: '20:10',
-    customerName: 'Karan Malhotra',
-    pickupAddress: 'Brigade Metropolis, Whitefield',
-    dropAddress: 'Phoenix Marketcity Mall',
-    distanceKm: 5.1,
-    durationMin: 18,
-    grossFare: 140,
-    platformFee: 0,
-    captainEarning: 140,
-    paymentMode: 'ONLINE_UPI',
-    vehicleType: 'bike',
-    customerRating: 5,
-    status: 'completed'
-  },
-  {
-    id: 'TRIP-9890',
-    rideId: 'SW-83842',
-    date: 'Yesterday',
-    time: '18:25',
-    customerName: 'Sanjay Reddy',
-    pickupAddress: 'Sarjapur Main Road, Bellandur',
-    dropAddress: 'Green Glen Layout',
-    distanceKm: 2.9,
-    durationMin: 10,
-    grossFare: 70,
-    platformFee: 0,
-    captainEarning: 70,
-    paymentMode: 'CASH',
-    vehicleType: 'bike',
-    customerRating: 5,
-    status: 'completed'
-  }
-];
+export const INITIAL_COMPLETED_TRIPS: CompletedTripRecord[] = [];
 
-export const INITIAL_TRANSACTIONS: WalletTransaction[] = [
-  {
-    id: 'TXN-9012',
-    title: 'Ride Earning #SW-83921 (100% Net Fare)',
-    type: 'ride_credit',
-    amount: 120,
-    date: 'Today, 18:42',
-    time: '18:42',
-    status: 'success',
-    referenceId: 'UPI-849204128',
-    breakdown: {
-      grossFare: 120,
-      platformFee: 0,
-      tip: 0
-    }
-  },
-  {
-    id: 'TXN-9011',
-    title: '24-Hour Bike Daily Pass Recharge (0% Comm)',
-    type: 'pass_subscription',
-    amount: -15,
-    date: 'Today, 06:00',
-    time: '06:00',
-    status: 'success',
-    referenceId: 'PASS-849201',
-    breakdown: {
-      passCost: 15
-    }
-  },
-  {
-    id: 'TXN-9010',
-    title: 'Instant Payout to HDFC Bank UPI',
-    type: 'withdrawal',
-    amount: -850,
-    date: 'Today, 14:00',
-    time: '14:00',
-    status: 'success',
-    referenceId: 'PAY-89214710',
-    upiId: 'rajesh.sawari@okhdfcbank'
-  },
-  {
-    id: 'TXN-9009',
-    title: 'Peak Hour 5-Ride Target Bonus',
-    type: 'incentive_bonus',
-    amount: 150,
-    date: 'Yesterday, 21:00',
-    time: '21:00',
-    status: 'success',
-    referenceId: 'INC-772910'
-  },
-  {
-    id: 'TXN-9008',
-    title: 'Ride Earning #SW-83860 (100% Net Fare)',
-    type: 'ride_credit',
-    amount: 140,
-    date: 'Yesterday, 20:10',
-    time: '20:10',
-    status: 'success',
-    referenceId: 'UPI-772184',
-    breakdown: {
-      grossFare: 140,
-      platformFee: 0,
-      tip: 0
-    }
-  }
-];
+export const INITIAL_TRANSACTIONS: WalletTransaction[] = [];
 
 export const WEEKLY_EARNINGS_DATA: DailyEarningData[] = [
   { day: 'Mon', date: '25 Aug', earnings: 1450, trips: 14, hours: 7.5 },
@@ -315,18 +116,18 @@ export const MONTHLY_EARNINGS_DATA = [
 ];
 
 export const INITIAL_ADMIN_STATS: AdminStats = {
-  totalRides: 4892,
-  totalGrossVolume: 648500,
-  totalPassRevenue: 48650, // Total revenue from Daily Passes sold
-  totalPassesSold: 2640,
+  totalRides: 0,
+  totalGrossVolume: 0,
+  totalPassRevenue: 0,
+  totalPassesSold: 0,
   passSalesByVehicle: {
-    bike: 1480, // 1480 * 15 = 22200
-    auto: 720,  // 720 * 20 = 14400
-    cab: 440    // 440 * 40 = 17600
+    bike: 0,
+    auto: 0,
+    cab: 0
   },
-  pendingDriverPayouts: 18450,
-  activeOnlineDrivers: 142,
-  pendingKycApprovals: 3
+  pendingDriverPayouts: 0,
+  activeOnlineDrivers: 0,
+  pendingKycApprovals: 0
 };
 
 // Pre-defined sample ride requests pool to pick or generate from

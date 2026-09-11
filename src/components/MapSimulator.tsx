@@ -2,10 +2,8 @@ import React, { useState, useEffect, useRef } from 'react';
 import L from 'leaflet';
 import { 
   Navigation, 
-  Flame, 
   Compass, 
   LocateFixed, 
-  Zap, 
   Car, 
   Bike, 
   Plus, 
@@ -28,13 +26,16 @@ interface MapSimulatorProps {
   isOnline: boolean;
   activeTripStep: TripStep;
   currentRide: RideRequest | null;
-  heatmapZones: HeatmapZone[];
+  heatmapZones?: HeatmapZone[];
   vehicleType: VehicleType;
   captainProgress: number; // 0 to 100%
   onSimulateRideTrigger?: () => void;
 }
 
 type TileStyle = 'night' | 'day' | 'hot';
+
+// Default fallback coordinates: Hyderabad, Telangana
+const HYDERABAD_FALLBACK: LatLng = { lat: 17.3850, lng: 78.4867 };
 
 const TILE_LAYERS: Record<TileStyle, { url: string; attribution: string; name: string; tileClass: string }> = {
   night: {
@@ -61,7 +62,6 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
   isOnline,
   activeTripStep,
   currentRide,
-  heatmapZones,
   vehicleType,
   captainProgress,
 }) => {
@@ -72,47 +72,96 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
   const pickupMarkerRef = useRef<L.Marker | null>(null);
   const dropMarkerRef = useRef<L.Marker | null>(null);
   const polylineRef = useRef<L.Polyline | null>(null);
-  const surgeCirclesRef = useRef<L.Circle[]>([]);
 
   const [tileStyle, setTileStyle] = useState<TileStyle>('day');
-  const [showHeatmaps, setShowHeatmaps] = useState(true);
   const [mapHeading, setMapHeading] = useState(24);
+  const [liveLocation, setLiveLocation] = useState<LatLng>(HYDERABAD_FALLBACK);
+  const [gpsActive, setGpsActive] = useState<boolean>(false);
+  const hasInitialGpsCentered = useRef<boolean>(false);
 
-  // Default Bangalore coordinates
-  const baseCaptainLocation: LatLng = { lat: 12.9352, lng: 77.6245 }; // Koramangala
+  // 1. Real Device GPS (navigator.geolocation.watchPosition)
+  useEffect(() => {
+    if (typeof window === 'undefined' || !('geolocation' in navigator)) {
+      console.warn('Geolocation is not supported by this browser environment');
+      return;
+    }
 
-  // Live computed current driver coordinates
+    const watchId = navigator.geolocation.watchPosition(
+      (position) => {
+        const { latitude, longitude, heading } = position.coords;
+        const coords: LatLng = { lat: latitude, lng: longitude };
+        setLiveLocation(coords);
+        setGpsActive(true);
+
+        // If device provides orientation/heading, update marker heading
+        if (heading !== null && !isNaN(heading) && heading >= 0) {
+          setMapHeading(Math.round(heading));
+        }
+
+        // Center map on real device location on first fix or when idle
+        if (mapInstanceRef.current) {
+          if (!hasInitialGpsCentered.current) {
+            mapInstanceRef.current.setView([latitude, longitude], 16, { animate: true });
+            hasInitialGpsCentered.current = true;
+          } else if (activeTripStep === 'idle') {
+            mapInstanceRef.current.panTo([latitude, longitude], { animate: true });
+          }
+        }
+      },
+      (error) => {
+        setGpsActive(false);
+        if (error.code !== 1) {
+          console.debug('Live GPS watchPosition info:', error.message);
+        }
+      },
+      {
+        enableHighAccuracy: true,
+        timeout: 20000,
+        maximumAge: 5000
+      }
+    );
+
+    return () => {
+      navigator.geolocation.clearWatch(watchId);
+    };
+  }, [activeTripStep]);
+
+  // Live computed current driver coordinates using real device GPS
   const currentCaptainCoords = React.useMemo<LatLng>(() => {
-    if (!currentRide) return baseCaptainLocation;
+    if (!currentRide) return liveLocation;
 
     if (activeTripStep === 'navigating_pickup' || activeTripStep === 'arrived_pickup' || activeTripStep === 'verifying_otp') {
-      return interpolateCoordinates(baseCaptainLocation, currentRide.pickupCoords, captainProgress);
+      return interpolateCoordinates(liveLocation, currentRide.pickupCoords, captainProgress);
     } else if (activeTripStep === 'on_trip') {
       return interpolateCoordinates(currentRide.pickupCoords, currentRide.dropCoords, captainProgress);
     }
-    return baseCaptainLocation;
-  }, [currentRide, activeTripStep, captainProgress]);
+    return liveLocation;
+  }, [currentRide, activeTripStep, captainProgress, liveLocation]);
 
-  // Compute bearing / heading for driver icon orientation
+  // Compute bearing / heading for driver icon orientation during active rides
   useEffect(() => {
     if (currentRide) {
       if (activeTripStep === 'navigating_pickup') {
-        const brng = calculateBearing(baseCaptainLocation, currentRide.pickupCoords);
+        const brng = calculateBearing(liveLocation, currentRide.pickupCoords);
         setMapHeading(Math.round(brng));
       } else if (activeTripStep === 'on_trip') {
         const brng = calculateBearing(currentRide.pickupCoords, currentRide.dropCoords);
         setMapHeading(Math.round(brng));
       }
     }
-  }, [currentRide, activeTripStep]);
+  }, [currentRide, activeTripStep, liveLocation]);
 
-  // 1. Initialize Leaflet Map Instance
+  // 2. Initialize Leaflet Map Instance
   useEffect(() => {
     if (!mapContainerRef.current || mapInstanceRef.current) return;
 
+    if ((mapContainerRef.current as any)._leaflet_id) {
+      delete (mapContainerRef.current as any)._leaflet_id;
+    }
+
     const map = L.map(mapContainerRef.current, {
-      center: [baseCaptainLocation.lat, baseCaptainLocation.lng],
-      zoom: 15,
+      center: [liveLocation.lat, liveLocation.lng],
+      zoom: 16,
       zoomControl: false,
       attributionControl: false
     });
@@ -130,18 +179,28 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
 
     // Handle container resize cleanly
     const resizeObserver = new ResizeObserver(() => {
-      map.invalidateSize();
+      try {
+        if (mapInstanceRef.current && mapInstanceRef.current.getContainer()) {
+          map.invalidateSize();
+        }
+      } catch {
+        // ignore
+      }
     });
     resizeObserver.observe(mapContainerRef.current);
 
     return () => {
       resizeObserver.disconnect();
-      map.remove();
+      try {
+        map.remove();
+      } catch {
+        // ignore
+      }
       mapInstanceRef.current = null;
     };
   }, []);
 
-  // 2. Change Tile Styles on demand (Night / Day / HOT)
+  // 3. Change Tile Styles on demand (Night / Day / HOT)
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
@@ -159,12 +218,12 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
     }).addTo(map);
   }, [tileStyle]);
 
-  // 3. Render and Update Live Markers & Route Polylines
+  // 4. Render and Update Live Markers & Route Polylines
   useEffect(() => {
     const map = mapInstanceRef.current;
     if (!map) return;
 
-    // Helper: Driver Marker Custom DivIcon
+    // Driver Marker Custom DivIcon with real-time GPS telemetry
     const vehicleIconHtml = `
       <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2" style="width: 48px; height: 48px;">
         <div class="absolute inset-0 rounded-full ${isOnline ? 'bg-amber-400/25 animate-ping' : 'bg-zinc-600/20'}"></div>
@@ -193,7 +252,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
       driverMarkerRef.current.setIcon(driverIcon);
     }
 
-    // 4. Pickup Marker
+    // Pickup Marker (During active ride)
     if (currentRide && (activeTripStep === 'navigating_pickup' || activeTripStep === 'arrived_pickup' || activeTripStep === 'verifying_otp')) {
       const pickupIconHtml = `
         <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2" style="width: 40px; height: 40px;">
@@ -226,7 +285,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
       map.removeLayer(pickupMarkerRef.current);
     }
 
-    // 5. Drop Destination Marker
+    // Drop Destination Marker (During active ride)
     if (currentRide && activeTripStep === 'on_trip') {
       const dropIconHtml = `
         <div class="relative flex items-center justify-center -translate-x-1/2 -translate-y-1/2" style="width: 44px; height: 44px;">
@@ -259,7 +318,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
       map.removeLayer(dropMarkerRef.current);
     }
 
-    // 6. Draw Optimized Road Polyline
+    // Draw Optimized Road Polyline
     if (polylineRef.current && map.hasLayer(polylineRef.current)) {
       map.removeLayer(polylineRef.current);
     }
@@ -303,42 +362,15 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
       }
     }
 
-    // 7. Render Heatmap Surge Circles
-    surgeCirclesRef.current.forEach(c => {
-      if (map.hasLayer(c)) map.removeLayer(c);
-    });
-    surgeCirclesRef.current = [];
-
-    if (isOnline && showHeatmaps && activeTripStep === 'idle') {
-      heatmapZones.forEach(zone => {
-        const circle = L.circle([zone.lat, zone.lng], {
-          radius: zone.radius || 450,
-          color: zone.surge >= 1.8 ? '#ef4444' : '#f59e0b',
-          fillColor: zone.surge >= 1.8 ? '#ef4444' : '#f59e0b',
-          fillOpacity: 0.22,
-          weight: 1.5,
-          dashArray: '4, 4'
-        }).addTo(map);
-
-        circle.bindTooltip(`🔥 <b>${zone.name}</b> (${zone.surge}x Surge)`, {
-          permanent: false,
-          direction: 'top',
-          className: 'surge-leaflet-tooltip'
-        });
-
-        surgeCirclesRef.current.push(circle);
-      });
-    }
-
-    // Pan map smoothly to track captain
+    // Pan map smoothly to track captain location
     map.panTo([currentCaptainCoords.lat, currentCaptainCoords.lng], { animate: true });
 
-  }, [currentCaptainCoords, currentRide, activeTripStep, isOnline, showHeatmaps, vehicleType, mapHeading, heatmapZones]);
+  }, [currentCaptainCoords, currentRide, activeTripStep, isOnline, vehicleType, mapHeading]);
 
-  // Recenter GPS Handler
+  // Recenter GPS Handler to device live location
   const handleRecenter = () => {
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([currentCaptainCoords.lat, currentCaptainCoords.lng], 15, { animate: true });
+      mapInstanceRef.current.setView([currentCaptainCoords.lat, currentCaptainCoords.lng], 16, { animate: true });
     }
   };
 
@@ -376,22 +408,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
         className="absolute inset-0 w-full h-full z-0"
       />
 
-      {/* 2. SURGE DEMAND OVERLAYS (When Online & Idle) */}
-      {isOnline && showHeatmaps && activeTripStep === 'idle' && (
-        <>
-          <div className="absolute top-[28%] left-[48%] -translate-x-1/2 -translate-y-1/2 flex items-center gap-1.5 px-3 py-1 bg-zinc-900/90 border border-amber-500/60 rounded-full shadow-lg backdrop-blur-md text-xs font-bold text-amber-400 animate-bounce pointer-events-none z-10">
-            <Flame className="w-3.5 h-3.5 text-amber-500 fill-amber-500" />
-            <span>1.8x Koramangala Surge</span>
-          </div>
-
-          <div className="absolute top-[18%] right-[14%] flex items-center gap-1 px-2.5 py-0.5 bg-zinc-900/80 border border-yellow-500/40 rounded-full text-[11px] font-semibold text-yellow-300 pointer-events-none z-10">
-            <Zap className="w-3 h-3 text-yellow-400" />
-            <span>1.5x Indiranagar</span>
-          </div>
-        </>
-      )}
-
-      {/* 3. ACTIVE NAVIGATION FLOATING HUD CARD (TOP OVERLAY) */}
+      {/* 2. ACTIVE NAVIGATION FLOATING HUD CARD (TOP OVERLAY) */}
       {currentRide && (activeTripStep === 'navigating_pickup' || activeTripStep === 'arrived_pickup' || activeTripStep === 'verifying_otp' || activeTripStep === 'on_trip') && (
         <div className="absolute top-3 left-3 right-3 flex items-center justify-between p-3 bg-zinc-900/95 border border-zinc-700/90 rounded-2xl shadow-2xl backdrop-blur-md z-20">
           <div className="flex items-center gap-3">
@@ -440,7 +457,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
         </div>
       )}
 
-      {/* 4. INTERACTIVE MAP CONTROLS (RIGHT DOCK) */}
+      {/* 3. INTERACTIVE MAP CONTROLS (RIGHT DOCK) */}
       <div className="absolute right-3 bottom-4 flex flex-col gap-2 z-20">
         
         {/* Layer Tile Style Toggle (Day Streets / Night Navigation / Humanitarian Detailed) */}
@@ -457,20 +474,6 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
           ) : (
             <MapIcon className="w-4 h-4 text-emerald-400" />
           )}
-        </button>
-
-        {/* Heatmaps toggle */}
-        <button
-          id="btn-toggle-heatmaps"
-          onClick={() => setShowHeatmaps(!showHeatmaps)}
-          title="Toggle High Demand Surge Heatmaps"
-          className={`p-2.5 rounded-xl border backdrop-blur-md transition-all shadow-md active:scale-95 ${
-            showHeatmaps 
-              ? 'bg-amber-400/20 border-amber-400/70 text-amber-300' 
-              : 'bg-zinc-900/90 border-zinc-800 text-zinc-400 hover:text-zinc-200'
-          }`}
-        >
-          <Flame className="w-4 h-4" />
         </button>
 
         {/* Zoom In (+) */}
@@ -493,27 +496,29 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
           <Minus className="w-4 h-4" />
         </button>
 
-        {/* Recenter GPS */}
+        {/* Recenter Live GPS */}
         <button
           id="btn-recenter-gps"
           onClick={handleRecenter}
           title="Recenter Live GPS Location"
-          className="p-2.5 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/70 rounded-xl text-zinc-200 backdrop-blur-md shadow-md active:scale-95"
+          className="p-2.5 bg-zinc-900/90 hover:bg-zinc-800 border border-zinc-700/70 rounded-xl text-zinc-200 backdrop-blur-md shadow-md active:scale-95 group"
         >
-          <LocateFixed className="w-4 h-4 text-amber-400" />
+          <LocateFixed className="w-4 h-4 text-amber-400 group-hover:scale-110 transition-transform" />
         </button>
       </div>
 
-      {/* 5. OPENSTREETMAP / CARTO ATTRIBUTION BADGE & GPS TELEMETRY (BOTTOM LEFT) */}
+      {/* 4. REAL LIVE GPS TELEMETRY BADGE (BOTTOM LEFT) */}
       <div className="absolute left-3 bottom-4 z-20 flex items-center gap-2">
         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-900/90 border border-zinc-800 rounded-lg text-[10px] text-zinc-300 backdrop-blur-md shadow-sm">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-ping" />
-          <span className="font-bold">GPS: {currentCaptainCoords.lat.toFixed(4)}, {currentCaptainCoords.lng.toFixed(4)}</span>
+          <span className={`w-2 h-2 rounded-full ${gpsActive ? 'bg-emerald-400 animate-ping' : 'bg-amber-400'}`} />
+          <span className="font-bold">
+            {gpsActive ? 'LIVE GPS' : 'GPS (Hyderabad)'}: {currentCaptainCoords.lat.toFixed(4)}, {currentCaptainCoords.lng.toFixed(4)}
+          </span>
           <span className="text-zinc-500 font-mono">| OSM</span>
         </div>
       </div>
 
-      {/* 6. OFFLINE WATERMARK BADGE */}
+      {/* 5. OFFLINE WATERMARK BADGE */}
       {!isOnline && (
         <div className="absolute inset-0 bg-zinc-950/70 backdrop-blur-[2px] flex flex-col items-center justify-center p-6 text-center z-30">
           <div className="w-12 h-12 rounded-2xl bg-zinc-900 border border-zinc-700 flex items-center justify-center mb-3 text-zinc-400 shadow-lg">

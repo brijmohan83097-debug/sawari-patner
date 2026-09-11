@@ -228,6 +228,45 @@ export function subscribeToSearchingRides(
 }
 
 /**
+ * 2b. Subscribe to completed rides from Firestore in real-time
+ */
+export function subscribeToCompletedRides(
+  callback: (rides: SharedRide[]) => void
+): () => void {
+  let unsubscribeFirestore: (() => void) | null = null;
+
+  if (db) {
+    const path = 'rides';
+    try {
+      const q = query(
+        collection(db, 'rides'),
+        where('status', '==', 'COMPLETED')
+      );
+
+      unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+        const completed: SharedRide[] = [];
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data() as SharedRide;
+          completed.push(data);
+          localRidesStore.set(data.id, data);
+        });
+        callback(completed);
+      }, (err) => {
+        handleFirestoreError(err, OperationType.GET, path);
+      });
+    } catch (error) {
+      handleFirestoreError(error, OperationType.GET, path);
+    }
+  }
+
+  return () => {
+    if (unsubscribeFirestore) {
+      unsubscribeFirestore();
+    }
+  };
+}
+
+/**
  * 3. Subscribe to a specific ride's full lifecycle in real time (for both Passenger & Captain)
  */
 export function subscribeToRide(

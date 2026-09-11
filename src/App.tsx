@@ -82,6 +82,7 @@ import {
 } from './context/LanguageContext';
 import {
   subscribeToSearchingRides,
+  subscribeToCompletedRides,
   acceptRideRequest,
   updateCaptainLiveGPS,
   markCaptainArrived,
@@ -94,14 +95,14 @@ import {
   INITIAL_COMPLETED_TRIPS, 
   WEEKLY_EARNINGS_DATA,
   INITIAL_ADMIN_STATS,
-  MASTER_ADMIN_PHONE,
   generateRandomRide 
 } from './data/mockData';
-import { captainStorageService } from './services/captainStorageService';
+import { isSuperAdminUser, SUPER_ADMIN_PHONE } from './utils/adminAuth';
+import { captainStorageService, isMockOrDummyDriver } from './services/captainStorageService';
 import { 
   DriverProfile, 
   RideRequest, 
-  SharedRide,
+  SharedRide, 
   TripStep, 
   VehicleType, 
   CompletedTripRecord, 
@@ -112,7 +113,9 @@ import {
   DailyPass
 } from './types';
 import { 
-  Zap 
+  Zap,
+  ShieldAlert,
+  Lock
 } from 'lucide-react';
 import { soundManager } from './utils/audio';
 
@@ -146,26 +149,21 @@ function AppContent() {
   // Drivers Fleet State
   const [allDrivers, setAllDrivers] = useState<DriverProfile[]>([]);
 
-  // Load real registered captains from persistent storage on startup
+  // Load and subscribe to real registered captains from persistent storage on startup
   useEffect(() => {
-    async function loadPersistedCaptains() {
-      try {
-        const stored = await captainStorageService.getAllCaptains();
-        if (stored && stored.length > 0) {
-          setAllDrivers(stored);
-        }
-      } catch (err) {
-        console.warn('Failed to load persisted captains:', err);
-      }
-    }
-    loadPersistedCaptains();
+    const unsubscribe = captainStorageService.subscribeToCaptains((stored) => {
+      setAllDrivers(stored || []);
+    });
+    return () => {
+      unsubscribe();
+    };
   }, []);
   const [driver, setDriver] = useState<DriverProfile>(() => {
     try {
       const saved = localStorage.getItem('sawari_auth_session');
       if (saved) {
         const parsed = JSON.parse(saved);
-        if (parsed.driver && parsed.driver.id) {
+        if (parsed.driver && parsed.driver.id && !isMockOrDummyDriver(parsed.driver)) {
           return { ...INITIAL_DRIVER, ...parsed.driver };
         }
       }
@@ -195,11 +193,11 @@ function AppContent() {
     return 0; // Strictly starts at ₹0.00 for new accounts
   });
 
-  const [todayEarnings, setTodayEarnings] = useState(1280);
-  const [completedTripsCount, setCompletedTripsCount] = useState(15);
-  const [onlineHours, setOnlineHours] = useState(6.8);
+  const [todayEarnings, setTodayEarnings] = useState(0);
+  const [completedTripsCount, setCompletedTripsCount] = useState(0);
+  const [onlineHours, setOnlineHours] = useState(0);
 
-  // Admin Metrics State
+  // Admin Metrics State (Strictly reset to 0, dynamically derived from real records)
   const [adminStats, setAdminStats] = useState<AdminStats>(INITIAL_ADMIN_STATS);
 
   // Trip state
@@ -211,6 +209,51 @@ function AppContent() {
 
   // Historical data
   const [tripHistory, setTripHistory] = useState<CompletedTripRecord[]>(INITIAL_COMPLETED_TRIPS);
+
+  // Real-time listener for completed rides from Firestore for Admin & Driver stats
+  useEffect(() => {
+    const unsubscribe = subscribeToCompletedRides((rides) => {
+      if (rides && rides.length > 0) {
+        const mappedRecords: CompletedTripRecord[] = rides.map(r => ({
+          id: `TRIP-${r.id}`,
+          rideId: r.id,
+          date: 'Today',
+          time: new Date(r.completedAt || r.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          customerName: r.passengerName,
+          pickupAddress: r.pickupAddress,
+          dropAddress: r.dropAddress,
+          distanceKm: r.distanceKm,
+          durationMin: r.estimatedTimeMin,
+          grossFare: r.fare,
+          platformFee: 0,
+          captainEarning: r.captainEarning || r.fare,
+          paymentMode: r.paymentMode,
+          vehicleType: r.vehicleType,
+          customerRating: r.rating || 5,
+          status: 'completed'
+        }));
+        setTripHistory(mappedRecords);
+      }
+    });
+
+    return () => {
+      unsubscribe();
+    };
+  }, []);
+
+  // Synchronize dynamic admin metrics strictly with real fleet & rides
+  useEffect(() => {
+    const onlineCount = allDrivers.filter(d => d.currentDutyStatus === 'online').length;
+    const pendingKyc = allDrivers.filter(d => d.kycStatus === 'pending').length;
+    const grossVolume = tripHistory.reduce((acc, t) => acc + (t.grossFare || 0), 0);
+    setAdminStats(prev => ({
+      ...prev,
+      totalRides: tripHistory.length,
+      totalGrossVolume: grossVolume,
+      activeOnlineDrivers: onlineCount,
+      pendingKycApprovals: pendingKyc
+    }));
+  }, [allDrivers, tripHistory]);
   const [transactions, setTransactions] = useState<WalletTransaction[]>(() => {
     try {
       const savedSession = localStorage.getItem('sawari_auth_session');
@@ -398,12 +441,12 @@ function AppContent() {
     // Update Platform Admin Metrics for subscription revenue
     setAdminStats(prev => ({
       ...prev,
-      totalPassRevenue: (prev.totalPassRevenue || 48650) + pass.price,
-      totalPassesSold: (prev.totalPassesSold || 2640) + 1,
+      totalPassRevenue: (prev.totalPassRevenue || 0) + pass.price,
+      totalPassesSold: (prev.totalPassesSold || 0) + 1,
       passSalesByVehicle: {
-        bike: (prev.passSalesByVehicle?.bike || 1480) + (pass.vehicleType === 'bike' ? 1 : 0),
-        auto: (prev.passSalesByVehicle?.auto || 720) + (pass.vehicleType === 'auto' ? 1 : 0),
-        cab: (prev.passSalesByVehicle?.cab || 440) + (pass.vehicleType === 'cab' ? 1 : 0)
+        bike: (prev.passSalesByVehicle?.bike || 0) + (pass.vehicleType === 'bike' ? 1 : 0),
+        auto: (prev.passSalesByVehicle?.auto || 0) + (pass.vehicleType === 'auto' ? 1 : 0),
+        cab: (prev.passSalesByVehicle?.cab || 0) + (pass.vehicleType === 'cab' ? 1 : 0)
       }
     }));
 
@@ -439,14 +482,32 @@ function AppContent() {
   };
 
   // Notification toast
-  const [activeToast, setActiveToast] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' } | null>(null);
+  const [activeToast, setActiveToast] = useState<{ id: string; message: string; type: 'info' | 'success' | 'warning' | 'error' } | null>(null);
 
-  const showToast = (message: string, type: 'info' | 'success' | 'warning' = 'info') => {
+  const showToast = (message: string, type: 'info' | 'success' | 'warning' | 'error' = 'info') => {
     setActiveToast({ id: `${Date.now()}`, message, type });
     setTimeout(() => {
       setActiveToast(null);
     }, 4000);
   };
+
+  // Strictly protected Admin navigation handler - only for +919052931129
+  const handleOpenAdmin = () => {
+    if (!isSuperAdminUser(driver)) {
+      showToast('Access Restricted to Super Admin (+919052931129)', 'error');
+      setAppMode('driver');
+      return;
+    }
+    setAppMode('admin');
+  };
+
+  // Strict Super Admin Access Guard: Any unauthorized access is immediately blocked and redirected
+  useEffect(() => {
+    if (appMode === 'admin' && !isSuperAdminUser(driver)) {
+      setAppMode('driver');
+      showToast('Access Restricted to Super Admin (+919052931129)', 'error');
+    }
+  }, [appMode, driver]);
 
   // Ride Acceptance (Driver -> Passenger sync)
   const handleAcceptRide = async (ride: RideRequest) => {
@@ -760,13 +821,10 @@ function AppContent() {
       // ignore
     }
     
-    // If logging in as Master Admin (9052931129), automatically open Super Admin Dashboard
-    if (
-      loggedInDriver.phone?.replace(/\D/g, '').includes(MASTER_ADMIN_PHONE) || 
-      loggedInDriver.id === 'super-admin-01' ||
-      loggedInDriver.email === 'brijmohan83097@gmail.com'
-    ) {
+    // If logging in strictly as Super Admin (+919052931129), automatically open Super Admin Dashboard
+    if (isSuperAdminUser(loggedInDriver)) {
       setAppMode('admin');
+      showToast('Welcome Super Admin (+919052931129)', 'success');
       return;
     }
 
@@ -792,9 +850,33 @@ function AppContent() {
   };
 
   // ----------------------------------------------------
-  // RENDER ADMIN DASHBOARD MODE
+  // RENDER ADMIN DASHBOARD MODE (STRICTLY LOCKED TO +919052931129)
   // ----------------------------------------------------
   if (appMode === 'admin') {
+    // Immediate unauthorized gate check
+    if (!isSuperAdminUser(driver)) {
+      return (
+        <div className="min-h-screen bg-zinc-950 flex flex-col items-center justify-center p-6 text-center">
+          <div className="w-16 h-16 rounded-3xl bg-rose-500/10 border border-rose-500/30 flex items-center justify-center text-rose-400 mb-4 shadow-xl">
+            <ShieldAlert className="w-8 h-8 text-rose-400" />
+          </div>
+          <h2 className="text-xl font-black text-zinc-100 mb-2">Access Restricted to Super Admin</h2>
+          <p className="text-xs text-zinc-400 max-w-xs mb-6 leading-relaxed">
+            Admin operations panel is restricted strictly to the verified super admin phone number ({SUPER_ADMIN_PHONE}).
+          </p>
+          <button
+            onClick={() => {
+              setAppMode('driver');
+              showToast('Access Restricted to Super Admin (+919052931129)', 'error');
+            }}
+            className="px-6 py-2.5 bg-amber-400 hover:bg-amber-300 text-zinc-950 rounded-xl text-xs font-black shadow-lg active:scale-95 transition-all"
+          >
+            Return to Captain Duty
+          </button>
+        </div>
+      );
+    }
+
     return (
       <ErrorBoundary 
         fallbackTitle="Admin Console Error" 
@@ -919,7 +1001,7 @@ function AppContent() {
         <LoginScreen
           onLoginSuccess={handleAuthLoginSuccess}
           onOpenRegister={() => setShowVehicleDetailsScreen(true)}
-          onOpenAdmin={() => setAppMode('admin')}
+          onOpenAdmin={handleOpenAdmin}
           onOpenPassengerApp={() => setAppMode('passenger')}
           onOpenSplitView={() => {
             setIsAuthenticated(true);
@@ -987,16 +1069,8 @@ function AppContent() {
           setDriver(d => ({ ...d, vehicleType: type }));
         }}
         onOpenProfile={() => setShowProfileModal(true)}
-        onOpenWallet={() => setShowWalletModal(true)}
-        onOpenKyc={() => setShowKycModal(true)}
         onOpenIdCard={() => handleOpenIdCardModal(driver)}
         onOpenDailyPass={() => setShowDailyPassModal(true)}
-        onOpenAdmin={() => setAppMode('admin')}
-        onOpenAuth={() => setShowAuthModal(true)}
-        onOpenPassengerApp={() => setAppMode('passenger')}
-        onOpenSplitView={() => setAppMode('split')}
-        onOpenSettings={() => setShowSettingsModal(true)}
-        onLogout={handleLogout}
       />
 
       {/* 2. MAIN APP VIEWPORT */}
@@ -1004,8 +1078,12 @@ function AppContent() {
         
         {/* Floating Real-time Trip Notification Toast */}
         {activeToast && (
-          <div className="fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-md border animate-in slide-in-from-top-4 duration-200 flex items-center gap-2.5 bg-zinc-900/95 border-amber-400/60 text-zinc-100">
-            <span className="text-sm font-bold text-amber-400">⚡</span>
+          <div className={`fixed top-16 left-1/2 -translate-x-1/2 z-50 max-w-md w-[92%] px-4 py-2.5 rounded-2xl shadow-2xl backdrop-blur-md border animate-in slide-in-from-top-4 duration-200 flex items-center gap-2.5 ${
+            activeToast.type === 'error'
+              ? 'bg-zinc-950/95 border-rose-500/80 text-rose-200 shadow-rose-950/50'
+              : 'bg-zinc-900/95 border-amber-400/60 text-zinc-100'
+          }`}>
+            <span className="text-sm font-bold text-amber-400">{activeToast.type === 'error' ? '🚫' : '⚡'}</span>
             <p className="text-xs font-semibold flex-1 leading-snug">{activeToast.message}</p>
           </div>
         )}
@@ -1029,14 +1107,17 @@ function AppContent() {
               </div>
             </div>
 
-            <div className="flex items-center gap-1.5">
-              <button
-                onClick={() => setAppMode('admin')}
-                className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-zinc-950 rounded-lg text-[10px] font-black"
-              >
-                Approve in Admin
-              </button>
-            </div>
+            {/* Super Admin testing shortcut: only rendered if user is verified +919052931129 */}
+            {isSuperAdminUser(driver) && (
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={handleOpenAdmin}
+                  className="px-2.5 py-1 bg-amber-400 hover:bg-amber-300 text-zinc-950 rounded-lg text-[10px] font-black"
+                >
+                  Admin
+                </button>
+              </div>
+            )}
           </div>
         )}
 

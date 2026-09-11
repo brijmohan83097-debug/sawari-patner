@@ -68,11 +68,32 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
     return matchesSearch && matchesStatus;
   });
 
+  // Dynamic metrics calculations strictly from real state & collections
   const pendingCount = drivers.filter(d => d.kycStatus === 'pending').length;
+  const onlineCaptainsCount = drivers.filter(d => d.currentDutyStatus === 'online').length;
+
+  // Real calculations for Completed Trips / Rides
+  const completedTripsVolume = completedTrips.reduce((acc, t) => acc + (t.grossFare || 0), 0);
+  const totalGrossVolume = stats.totalGrossVolume || completedTripsVolume;
+  const captainTakeHome = completedTrips.length > 0 
+    ? completedTrips.reduce((acc, t) => acc + (t.captainEarning || 0), 0)
+    : totalGrossVolume;
+
+  // Real calculations for Passes
+  const activePassDrivers = drivers.filter(d => d.activePass && d.activePass.status === 'active' && d.activePass.expiresAt > Date.now());
+  const bikePassCount = (stats.passSalesByVehicle?.bike || 0) + activePassDrivers.filter(d => d.activePass?.vehicleType === 'bike').length;
+  const autoPassCount = (stats.passSalesByVehicle?.auto || 0) + activePassDrivers.filter(d => d.activePass?.vehicleType === 'auto').length;
+  const cabPassCount = (stats.passSalesByVehicle?.cab || 0) + activePassDrivers.filter(d => d.activePass?.vehicleType === 'cab').length;
+
+  const bikePassRev = bikePassCount * 15;
+  const autoPassRev = autoPassCount * 20;
+  const cabPassRev = cabPassCount * 40;
+  const totalPassRevenue = (stats.totalPassRevenue || 0) > 0 ? stats.totalPassRevenue : (bikePassRev + autoPassRev + cabPassRev);
+  const totalPassesSold = (stats.totalPassesSold || 0) > 0 ? stats.totalPassesSold : (bikePassCount + autoPassCount + cabPassCount);
 
   const handleProcessPayouts = () => {
     soundManager.playCashEarned();
-    setPayoutSuccessMsg('Successfully processed ₹18,450 driver earnings via Instant UPI Payouts!');
+    setPayoutSuccessMsg(`Successfully processed ₹${captainTakeHome.toLocaleString()} driver earnings via Instant UPI Payouts!`);
     setTimeout(() => setPayoutSuccessMsg(''), 4000);
   };
 
@@ -89,8 +110,9 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div>
               <div className="flex items-center gap-2">
                 <h1 className="text-base sm:text-lg font-black tracking-tight text-zinc-100">Sawari Admin Operations</h1>
-                <span className="px-2 py-0.5 bg-amber-400/20 border border-amber-400/40 rounded-full text-[10px] font-black text-amber-300 uppercase">
-                  Central Admin
+                <span className="px-2 py-0.5 bg-amber-400/20 border border-amber-400/40 rounded-full text-[10px] font-black text-amber-300 uppercase flex items-center gap-1">
+                  <span>🔒</span>
+                  <span>Super Admin (+919052931129)</span>
                 </span>
               </div>
               <p className="text-xs text-zinc-400">Driver Verification • 0% Commission & Daily Pass Subscriptions • Fleet Operations</p>
@@ -136,10 +158,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="bg-zinc-900/80 border border-zinc-800 p-3.5 rounded-2xl">
             <span className="text-[10px] uppercase font-bold text-zinc-400 block">Gross Ride Volume</span>
             <div className="text-base sm:text-lg font-black text-zinc-100 mt-0.5 font-mono">
-              ₹{(stats.totalGrossVolume).toLocaleString()}
+              ₹{totalGrossVolume.toLocaleString()}
             </div>
             <span className="text-[10px] text-emerald-400 font-semibold flex items-center gap-0.5 mt-0.5">
-              <TrendingUp className="w-3 h-3" /> +14.2% this week
+              0% Platform Commission
             </span>
           </div>
 
@@ -150,7 +172,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <Sparkles className="w-3.5 h-3.5 text-amber-400" />
             </div>
             <div className="text-base sm:text-lg font-black text-amber-400 mt-0.5 font-mono">
-              ₹{(stats.totalPassRevenue || 48650).toLocaleString()}
+              ₹{totalPassRevenue.toLocaleString()}
             </div>
             <span className="text-[10px] text-amber-300/80 font-medium">₹15/₹20/₹40 passes</span>
           </div>
@@ -159,7 +181,7 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="bg-zinc-900/80 border border-zinc-800 p-3.5 rounded-2xl">
             <span className="text-[10px] uppercase font-bold text-zinc-400 block">Passes Sold</span>
             <div className="text-base sm:text-lg font-black text-zinc-100 mt-0.5 font-mono">
-              {(stats.totalPassesSold || 2640).toLocaleString()}
+              {totalPassesSold.toLocaleString()}
             </div>
             <span className="text-[10px] text-emerald-400 font-medium">0% ride commission</span>
           </div>
@@ -168,8 +190,8 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div className="bg-zinc-900/80 border border-zinc-800 p-3.5 rounded-2xl">
             <span className="text-[10px] uppercase font-bold text-zinc-400 block">Online Captains</span>
             <div className="text-base sm:text-lg font-black text-emerald-400 mt-0.5 font-mono flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              {stats.activeOnlineDrivers}
+              <span className={`w-2 h-2 rounded-full ${onlineCaptainsCount > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-zinc-600'}`} />
+              {onlineCaptainsCount}
             </div>
             <span className="text-[10px] text-zinc-400">Bike, Auto, Cab</span>
           </div>
@@ -184,14 +206,16 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             <div className="text-base sm:text-lg font-black text-amber-400 mt-0.5 font-mono">
               {pendingCount} Captains
             </div>
-            <span className="text-[10px] text-amber-300 font-medium">Needs Document QC</span>
+            <span className="text-[10px] text-amber-300 font-medium">
+              {pendingCount > 0 ? 'Needs Document QC' : 'Queue Clear'}
+            </span>
           </div>
 
           {/* Driver Payouts */}
           <div className="bg-zinc-900/80 border border-zinc-800 p-3.5 rounded-2xl">
             <span className="text-[10px] uppercase font-bold text-zinc-400 block">Captains Take-Home (100%)</span>
             <div className="text-base sm:text-lg font-black text-emerald-400 mt-0.5 font-mono">
-              ₹{(stats.totalGrossVolume).toLocaleString()}
+              ₹{captainTakeHome.toLocaleString()}
             </div>
             <button
               onClick={handleProcessPayouts}
@@ -482,10 +506,10 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
             </div>
 
             {filteredDrivers.length === 0 && (
-              <div className="p-8 text-center bg-zinc-900/50 rounded-3xl border border-zinc-800 text-zinc-400">
-                <Users className="w-8 h-8 mx-auto mb-2 text-zinc-600" />
-                <p className="text-sm font-bold text-zinc-300">No driver registrations found</p>
-                <p className="text-xs text-zinc-500">Try changing your search keywords or filter tab</p>
+              <div id="empty-captains-state" className="p-12 text-center bg-zinc-900/50 rounded-3xl border border-zinc-800/80 text-zinc-400">
+                <Users className="w-10 h-10 mx-auto mb-3 text-zinc-600" />
+                <p className="text-base font-bold text-zinc-200">No registered captains found. Real-time registrations will appear here.</p>
+                <p className="text-xs text-zinc-500 mt-1">When new drivers register and submit KYC documents, their profiles will stream in here live.</p>
               </div>
             )}
 
@@ -514,11 +538,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 
                 <div className="mt-4 pt-3 border-t border-zinc-800 flex items-center justify-between text-xs">
                   <span className="text-zinc-400">Passes Active Today:</span>
-                  <span className="font-mono font-bold text-emerald-400">{stats.passSalesByVehicle?.bike || 1480} sold</span>
+                  <span className="font-mono font-bold text-emerald-400">{bikePassCount} sold</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-xs">
                   <span className="text-zinc-400">Total Subscription Rev:</span>
-                  <span className="font-mono font-bold text-amber-400">₹{(stats.passSalesByVehicle?.bike || 1480) * 15}</span>
+                  <span className="font-mono font-bold text-amber-400">₹{bikePassRev.toLocaleString()}</span>
                 </div>
               </div>
 
@@ -537,11 +561,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 
                 <div className="mt-4 pt-3 border-t border-zinc-800 flex items-center justify-between text-xs">
                   <span className="text-zinc-400">Passes Active Today:</span>
-                  <span className="font-mono font-bold text-emerald-400">{stats.passSalesByVehicle?.auto || 720} sold</span>
+                  <span className="font-mono font-bold text-emerald-400">{autoPassCount} sold</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-xs">
                   <span className="text-zinc-400">Total Subscription Rev:</span>
-                  <span className="font-mono font-bold text-amber-400">₹{(stats.passSalesByVehicle?.auto || 720) * 20}</span>
+                  <span className="font-mono font-bold text-amber-400">₹{autoPassRev.toLocaleString()}</span>
                 </div>
               </div>
 
@@ -560,11 +584,11 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 
                 <div className="mt-4 pt-3 border-t border-zinc-800 flex items-center justify-between text-xs">
                   <span className="text-zinc-400">Passes Active Today:</span>
-                  <span className="font-mono font-bold text-emerald-400">{stats.passSalesByVehicle?.cab || 440} sold</span>
+                  <span className="font-mono font-bold text-emerald-400">{cabPassCount} sold</span>
                 </div>
                 <div className="mt-1 flex items-center justify-between text-xs">
                   <span className="text-zinc-400">Total Subscription Rev:</span>
-                  <span className="font-mono font-bold text-amber-400">₹{(stats.passSalesByVehicle?.cab || 440) * 40}</span>
+                  <span className="font-mono font-bold text-amber-400">₹{cabPassRev.toLocaleString()}</span>
                 </div>
               </div>
 
@@ -616,46 +640,55 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 </div>
 
                 <span className="text-xs font-mono font-black text-emerald-400">
-                  Total Passes Revenue: ₹{(stats.totalPassRevenue || 48650).toLocaleString()}
+                  Total Passes Revenue: ₹{totalPassRevenue.toLocaleString()}
                 </span>
               </div>
 
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-xs">
-                  <thead>
-                    <tr className="border-b border-zinc-800 text-zinc-500 uppercase text-[10px]">
-                      <th className="py-2.5 px-3">Trip ID</th>
-                      <th className="py-2.5 px-3">Customer</th>
-                      <th className="py-2.5 px-3">Gross Bill</th>
-                      <th className="py-2.5 px-3 text-amber-400 font-black">Platform Comm</th>
-                      <th className="py-2.5 px-3 text-emerald-400 font-black">Captain 100% Take-Home</th>
-                      <th className="py-2.5 px-3">Pass Status</th>
-                      <th className="py-2.5 px-3">Status</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-zinc-800/60 font-mono">
-                    {completedTrips.map(trip => (
-                      <tr key={trip.id} className="hover:bg-zinc-800/40 transition-colors">
-                        <td className="py-3 px-3 font-bold text-zinc-300">{trip.rideId}</td>
-                        <td className="py-3 px-3 text-zinc-200 font-sans">{trip.customerName}</td>
-                        <td className="py-3 px-3 font-bold text-zinc-100">₹{trip.grossFare}</td>
-                        <td className="py-3 px-3 font-black text-emerald-400">₹0 (0%)</td>
-                        <td className="py-3 px-3 font-black text-emerald-400">₹{trip.captainEarning}</td>
-                        <td className="py-3 px-3">
-                          <span className="px-1.5 py-0.5 bg-amber-400/20 text-amber-300 rounded text-[9px] font-bold font-sans">
-                            Active Pass
-                          </span>
-                        </td>
-                        <td className="py-3 px-3">
-                          <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-md text-[10px] font-black uppercase font-sans">
-                            Settled ✓
-                          </span>
-                        </td>
+              {completedTrips.length === 0 ? (
+                <div className="py-12 text-center text-zinc-500 text-xs">
+                  <p className="font-bold text-zinc-400">No completed ride records in platform ledger yet</p>
+                  <p className="text-[11px] text-zinc-500 mt-1">
+                    Trips completed by captains with 0% platform commission will be logged and audited here in real time.
+                  </p>
+                </div>
+              ) : (
+                <div className="overflow-x-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead>
+                      <tr className="border-b border-zinc-800 text-zinc-500 uppercase text-[10px]">
+                        <th className="py-2.5 px-3">Trip ID</th>
+                        <th className="py-2.5 px-3">Customer</th>
+                        <th className="py-2.5 px-3">Gross Bill</th>
+                        <th className="py-2.5 px-3 text-amber-400 font-black">Platform Comm</th>
+                        <th className="py-2.5 px-3 text-emerald-400 font-black">Captain 100% Take-Home</th>
+                        <th className="py-2.5 px-3">Pass Status</th>
+                        <th className="py-2.5 px-3">Status</th>
                       </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+                    </thead>
+                    <tbody className="divide-y divide-zinc-800/60 font-mono">
+                      {completedTrips.map(trip => (
+                        <tr key={trip.id} className="hover:bg-zinc-800/40 transition-colors">
+                          <td className="py-3 px-3 font-bold text-zinc-300">{trip.rideId}</td>
+                          <td className="py-3 px-3 text-zinc-200 font-sans">{trip.customerName}</td>
+                          <td className="py-3 px-3 font-bold text-zinc-100">₹{trip.grossFare}</td>
+                          <td className="py-3 px-3 font-black text-emerald-400">₹0 (0%)</td>
+                          <td className="py-3 px-3 font-black text-emerald-400">₹{trip.captainEarning}</td>
+                          <td className="py-3 px-3">
+                            <span className="px-1.5 py-0.5 bg-amber-400/20 text-amber-300 rounded text-[9px] font-bold font-sans">
+                              Active Pass
+                            </span>
+                          </td>
+                          <td className="py-3 px-3">
+                            <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 rounded-md text-[10px] font-black uppercase font-sans">
+                              Settled ✓
+                            </span>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
             </div>
 
           </div>
@@ -675,33 +708,43 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                   </span>
                 </div>
 
-                <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
-                  {drivers.map(d => (
-                    <div
-                      key={d.id}
-                      className="p-3 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-between text-xs hover:border-zinc-700 transition-colors"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <img src={d.avatar} alt={d.name} className="w-9 h-9 rounded-full object-cover border border-amber-400" />
-                        <div className="min-w-0">
-                          <p className="font-black text-zinc-200 truncate">{d.name}</p>
-                          <p className="text-[10px] text-zinc-500 font-mono">{d.badgeId} • {d.vehicleNumber}</p>
+                {drivers.length === 0 ? (
+                  <div className="py-12 text-center text-zinc-500 text-xs">
+                    <Users className="w-7 h-7 mx-auto mb-2 text-zinc-600" />
+                    <p className="font-bold text-zinc-300">No active drivers in fleet</p>
+                    <p className="text-[11px] text-zinc-500 mt-1">
+                      Captains registering or signing in will appear here with live telemetry.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2 max-h-[480px] overflow-y-auto pr-1">
+                    {drivers.map(d => (
+                      <div
+                        key={d.id}
+                        className="p-3 bg-zinc-950 border border-zinc-800 rounded-2xl flex items-center justify-between text-xs hover:border-zinc-700 transition-colors"
+                      >
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <img src={d.avatar} alt={d.name} className="w-9 h-9 rounded-full object-cover border border-amber-400" />
+                          <div className="min-w-0">
+                            <p className="font-black text-zinc-200 truncate">{d.name}</p>
+                            <p className="text-[10px] text-zinc-500 font-mono">{d.badgeId} • {d.vehicleNumber}</p>
+                          </div>
+                        </div>
+
+                        <div className="text-right flex-shrink-0">
+                          <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
+                            d.currentDutyStatus === 'online'
+                              ? 'bg-emerald-500/20 text-emerald-400'
+                              : 'bg-zinc-800 text-zinc-500'
+                          }`}>
+                            {d.currentDutyStatus || 'Online'}
+                          </span>
+                          <p className="text-[10px] text-amber-400 font-mono mt-0.5">★ {d.rating}</p>
                         </div>
                       </div>
-
-                      <div className="text-right flex-shrink-0">
-                        <span className={`px-2 py-0.5 rounded text-[9px] font-black uppercase ${
-                          d.currentDutyStatus === 'online'
-                            ? 'bg-emerald-500/20 text-emerald-400'
-                            : 'bg-zinc-800 text-zinc-500'
-                        }`}>
-                          {d.currentDutyStatus || 'Online'}
-                        </span>
-                        <p className="text-[10px] text-amber-400 font-mono mt-0.5">★ {d.rating}</p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Live Fleet Hotspots Map Visualization */}
@@ -712,43 +755,57 @@ export const AdminDashboard: React.FC<AdminDashboardProps> = ({
                       <MapPin className="w-5 h-5 text-amber-400" />
                       <h4 className="text-sm font-black text-zinc-100">Live Driver GPS Hub (Bengaluru Metro)</h4>
                     </div>
-                    <span className="text-xs font-mono text-zinc-400">142 Drivers Online</span>
+                    <span className="text-xs font-mono text-zinc-400">{onlineCaptainsCount} Drivers Online</span>
                   </div>
                   <p className="text-xs text-zinc-400">Real-time captain locations and high surge demand zones</p>
                 </div>
 
-                {/* Map Mock Simulation Canvas */}
+                {/* Map Simulation Canvas */}
                 <div className="my-4 relative h-64 bg-zinc-950 rounded-2xl border border-zinc-800 overflow-hidden flex items-center justify-center">
                   
                   {/* Grid lines */}
                   <div className="absolute inset-0 bg-[radial-gradient(#333_1px,transparent_1px)] [background-size:16px_16px] opacity-40" />
 
-                  {/* Hotspots */}
-                  <div className="absolute top-10 left-16 p-3 rounded-full bg-amber-400/20 border border-amber-400/60 animate-pulse flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-amber-400" />
-                    <span className="absolute -bottom-5 text-[10px] font-bold text-amber-300 whitespace-nowrap bg-zinc-950/80 px-1.5 py-0.5 rounded">
-                      Koramangala (42 Bikes)
-                    </span>
-                  </div>
+                  {onlineCaptainsCount === 0 ? (
+                    <div className="text-center z-10 bg-zinc-900/90 border border-zinc-800 px-6 py-4 rounded-2xl shadow-xl max-w-sm">
+                      <MapPin className="w-6 h-6 text-zinc-500 mx-auto mb-1.5" />
+                      <p className="text-xs font-black text-zinc-300">No Captains Online</p>
+                      <p className="text-[10px] text-zinc-500 mt-1">
+                        0 captains are currently on duty. Active drivers will broadcast live GPS telemetry and location markers here.
+                      </p>
+                    </div>
+                  ) : (
+                    <>
+                      {drivers.filter(d => d.currentDutyStatus === 'online').slice(0, 6).map((d, idx) => {
+                        const positions = [
+                          { top: '25%', left: '25%' },
+                          { top: '35%', right: '25%' },
+                          { bottom: '25%', left: '35%' },
+                          { top: '60%', right: '35%' },
+                          { top: '15%', right: '45%' },
+                          { bottom: '15%', right: '20%' }
+                        ];
+                        const pos = positions[idx % positions.length];
+                        return (
+                          <div
+                            key={d.id}
+                            style={pos}
+                            className="absolute p-2 rounded-full bg-amber-400/20 border border-amber-400/60 animate-pulse flex items-center justify-center"
+                          >
+                            <div className="w-2.5 h-2.5 rounded-full bg-amber-400" />
+                            <span className="absolute -bottom-5 text-[9px] font-bold text-amber-300 whitespace-nowrap bg-zinc-950/90 px-1.5 py-0.5 rounded border border-zinc-800">
+                              {d.name} ({d.vehicleType})
+                            </span>
+                          </div>
+                        );
+                      })}
 
-                  <div className="absolute top-20 right-20 p-3 rounded-full bg-amber-400/20 border border-amber-400/60 animate-pulse flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-amber-400" />
-                    <span className="absolute -bottom-5 text-[10px] font-bold text-amber-300 whitespace-nowrap bg-zinc-950/80 px-1.5 py-0.5 rounded">
-                      Indiranagar (35 Drivers)
-                    </span>
-                  </div>
-
-                  <div className="absolute bottom-12 left-1/3 p-3 rounded-full bg-rose-500/20 border border-rose-500/60 animate-pulse flex items-center justify-center">
-                    <div className="w-3 h-3 rounded-full bg-rose-500" />
-                    <span className="absolute -bottom-5 text-[10px] font-bold text-rose-300 whitespace-nowrap bg-zinc-950/80 px-1.5 py-0.5 rounded">
-                      Tech Village Outer Ring (58 Drivers)
-                    </span>
-                  </div>
-
-                  <div className="text-center z-10 bg-zinc-900/90 border border-zinc-800 px-4 py-2 rounded-2xl shadow-xl">
-                    <p className="text-xs font-black text-amber-400">Bengaluru Core Region Active</p>
-                    <p className="text-[10px] text-zinc-400">Average Driver ETA to Customer: 2.4 Mins</p>
-                  </div>
+                      <div className="text-center z-10 bg-zinc-900/90 border border-zinc-800 px-4 py-2 rounded-2xl shadow-xl">
+                        <p className="text-xs font-black text-amber-400">Live Active Fleet</p>
+                        <p className="text-[10px] text-zinc-400">{onlineCaptainsCount} Captains Online & Ready</p>
+                      </div>
+                    </>
+                  )}
                 </div>
 
                 <div className="flex items-center justify-between text-xs text-zinc-400 pt-2 border-t border-zinc-800">

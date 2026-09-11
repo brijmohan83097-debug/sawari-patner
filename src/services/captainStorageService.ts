@@ -19,6 +19,19 @@ const BROADCAST_CHANNEL_NAME = 'sawari_captains_realtime_sync';
 let inMemoryCaptains: DriverProfile[] = [];
 let isInitialized = false;
 
+// Filter and purge any legacy mock/dummy captain profiles (e.g. SW-ADM-001, Brijmohan Super Admin)
+export function isMockOrDummyDriver(c: Partial<DriverProfile> | null | undefined): boolean {
+  if (!c) return true;
+  const id = c.id || '';
+  const badgeId = c.badgeId || '';
+  const name = c.name || '';
+  
+  if (id === 'DRV-ADMIN-001' || id === 'DRV-1129' || id === 'DRV-NEW') return true;
+  if (badgeId === 'SW-ADM-001' || badgeId === 'SW-ADM-905' || badgeId === 'SW-1129' || badgeId === 'SW-NEW') return true;
+  if (name.includes('Super Admin') || name.includes('SW-ADM') || name === 'Brijmohan (Super Admin)' || name === 'Captain Brijmohan' || name === 'New Captain') return true;
+  return false;
+}
+
 // BroadcastChannel for instant cross-tab sync
 let broadcastChannel: BroadcastChannel | null = null;
 try {
@@ -151,21 +164,32 @@ function loadFromLocalStorage(): DriverProfile[] {
 // ----------------------------------------------------------------------
 export async function initializeCaptainStorage(): Promise<DriverProfile[]> {
   if (isInitialized && inMemoryCaptains.length > 0) {
+    inMemoryCaptains = inMemoryCaptains.filter(c => !isMockOrDummyDriver(c));
     return inMemoryCaptains;
   }
 
   // 1. Try LocalStorage for instant UI paint
-  const localList = loadFromLocalStorage();
+  const localList = loadFromLocalStorage().filter(c => !isMockOrDummyDriver(c));
   if (localList.length > 0) {
     inMemoryCaptains = localList;
+  } else {
+    inMemoryCaptains = [];
   }
 
   // 2. Try IndexedDB (has full uncompressed images)
   try {
     const idbList = await getAllCaptainsFromIDB();
     if (idbList && idbList.length > 0) {
-      inMemoryCaptains = idbList;
-      syncToLocalStorage(idbList);
+      for (const item of idbList) {
+        if (isMockOrDummyDriver(item)) {
+          await deleteCaptainFromIDB(item.id).catch(() => {});
+        }
+      }
+      const cleanIdb = idbList.filter(c => !isMockOrDummyDriver(c));
+      if (cleanIdb.length > 0) {
+        inMemoryCaptains = cleanIdb;
+        syncToLocalStorage(cleanIdb);
+      }
     }
   } catch (e) {
     console.warn('IndexedDB init error:', e);
@@ -177,20 +201,28 @@ export async function initializeCaptainStorage(): Promise<DriverProfile[]> {
       const snap = await getDocs(collection(db, 'captains'));
       if (!snap.empty) {
         const firestoreList: DriverProfile[] = [];
-        snap.forEach(d => {
-          firestoreList.push(d.data() as DriverProfile);
-        });
+        for (const d of snap.docs) {
+          const profile = d.data() as DriverProfile;
+          if (isMockOrDummyDriver(profile) || d.id === 'DRV-ADMIN-001') {
+            deleteDoc(doc(db, 'captains', d.id)).catch(() => {});
+          } else {
+            firestoreList.push(profile);
+          }
+        }
 
         // Merge firestore with local
         const mergedMap = new Map<string, DriverProfile>();
-        inMemoryCaptains.forEach(c => mergedMap.set(c.id, c));
+        inMemoryCaptains.forEach(c => {
+          if (!isMockOrDummyDriver(c)) mergedMap.set(c.id, c);
+        });
         firestoreList.forEach(c => {
-          const existing = mergedMap.get(c.id);
-          // Preserve local heavy base64 docs if firestore version didn't include full images
-          mergedMap.set(c.id, existing ? { ...c, kycDocs: existing.kycDocs || c.kycDocs } : c);
+          if (!isMockOrDummyDriver(c)) {
+            const existing = mergedMap.get(c.id);
+            mergedMap.set(c.id, existing ? { ...c, kycDocs: existing.kycDocs || c.kycDocs } : c);
+          }
         });
 
-        inMemoryCaptains = Array.from(mergedMap.values());
+        inMemoryCaptains = Array.from(mergedMap.values()).filter(c => !isMockOrDummyDriver(c));
         syncToLocalStorage(inMemoryCaptains);
       }
     } catch (e) {
@@ -198,6 +230,8 @@ export async function initializeCaptainStorage(): Promise<DriverProfile[]> {
     }
   }
 
+  inMemoryCaptains = inMemoryCaptains.filter(c => !isMockOrDummyDriver(c));
+  syncToLocalStorage(inMemoryCaptains);
   isInitialized = true;
   notifySubscribers();
 
@@ -205,7 +239,7 @@ export async function initializeCaptainStorage(): Promise<DriverProfile[]> {
   if (broadcastChannel) {
     broadcastChannel.onmessage = (event) => {
       if (event.data && event.data.type === 'CAPTAINS_UPDATED' && Array.isArray(event.data.captains)) {
-        inMemoryCaptains = event.data.captains;
+        inMemoryCaptains = event.data.captains.filter(c => !isMockOrDummyDriver(c));
         notifySubscribers();
       }
     };
@@ -377,8 +411,9 @@ export async function deleteCaptain(captainId: string): Promise<void> {
 // ----------------------------------------------------------------------
 export function subscribeToCaptains(listener: CaptainsListener): () => void {
   subscribers.add(listener);
-  // Trigger initial
-  listener([...inMemoryCaptains]);
+  // Trigger initial with clean list
+  const cleanInitial = inMemoryCaptains.filter(c => !isMockOrDummyDriver(c));
+  listener([...cleanInitial]);
 
   // Firestore real-time listener if db is active
   let unsubscribeFirestore: (() => void) | null = null;
@@ -387,17 +422,31 @@ export function subscribeToCaptains(listener: CaptainsListener): () => void {
       unsubscribeFirestore = onSnapshot(collection(db, 'captains'), (snapshot) => {
         if (!snapshot.empty) {
           const remoteList: DriverProfile[] = [];
-          snapshot.forEach(d => remoteList.push(d.data() as DriverProfile));
+          snapshot.forEach(d => {
+            const data = d.data() as DriverProfile;
+            if (isMockOrDummyDriver(data) || d.id === 'DRV-ADMIN-001') {
+              deleteDoc(doc(db, 'captains', d.id)).catch(() => {});
+            } else {
+              remoteList.push(data);
+            }
+          });
           
           // Merge with memory
           const map = new Map<string, DriverProfile>();
-          inMemoryCaptains.forEach(c => map.set(c.id, c));
-          remoteList.forEach(c => {
-            const cur = map.get(c.id);
-            map.set(c.id, cur ? { ...c, kycDocs: cur.kycDocs || c.kycDocs, avatar: cur.avatar || c.avatar } : c);
+          inMemoryCaptains.forEach(c => {
+            if (!isMockOrDummyDriver(c)) map.set(c.id, c);
           });
-          inMemoryCaptains = Array.from(map.values());
+          remoteList.forEach(c => {
+            if (!isMockOrDummyDriver(c)) {
+              const cur = map.get(c.id);
+              map.set(c.id, cur ? { ...c, kycDocs: cur.kycDocs || c.kycDocs, avatar: cur.avatar || c.avatar } : c);
+            }
+          });
+          inMemoryCaptains = Array.from(map.values()).filter(c => !isMockOrDummyDriver(c));
           syncToLocalStorage(inMemoryCaptains);
+          notifySubscribers();
+        } else {
+          inMemoryCaptains = inMemoryCaptains.filter(c => !isMockOrDummyDriver(c));
           notifySubscribers();
         }
       }, (err) => {
