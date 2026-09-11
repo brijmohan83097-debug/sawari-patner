@@ -39,21 +39,21 @@ const HYDERABAD_FALLBACK: LatLng = { lat: 17.3850, lng: 78.4867 };
 
 const TILE_LAYERS: Record<TileStyle, { url: string; attribution: string; name: string; tileClass: string }> = {
   night: {
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
+    url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
     name: 'Night Navigation',
     tileClass: 'leaflet-tile-night'
   },
   day: {
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-    name: 'Day Streets (Voyager)',
+    url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    name: 'Day Streets (OSM)',
     tileClass: 'leaflet-tile-light'
   },
   hot: {
-    url: 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',
-    attribution: '&copy; <a href="https://carto.com/">CARTO</a>',
-    name: 'Detailed Roads (Voyager)',
+    url: 'https://tile.openstreetmap.de/{z}/{x}/{y}.png',
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
+    name: 'Detailed Roads (OSM)',
     tileClass: 'leaflet-tile-light'
   }
 };
@@ -169,7 +169,6 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
     const activeTile = TILE_LAYERS[tileStyle];
     const layer = L.tileLayer(activeTile.url, {
       maxZoom: 19,
-      subdomains: 'abcd',
       className: activeTile.tileClass,
       attribution: activeTile.attribution
     }).addTo(map);
@@ -212,7 +211,6 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
     const activeTile = TILE_LAYERS[tileStyle];
     tileLayerRef.current = L.tileLayer(activeTile.url, {
       maxZoom: 19,
-      subdomains: 'abcd',
       className: activeTile.tileClass,
       attribution: activeTile.attribution
     }).addTo(map);
@@ -403,6 +401,7 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
       
       {/* 1. REAL OPENSTREETMAP / LEAFLET TILES MAP CONTAINER */}
       <div 
+        key="clean-map-v1"
         ref={mapContainerRef} 
         id="leaflet-map-canvas"
         className="absolute inset-0 w-full h-full z-0"

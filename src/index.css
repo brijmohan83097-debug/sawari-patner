@@ -41,3 +41,21 @@ body,
 .leaflet-tile-light {
   filter: none !important;
 }
+
+/* Completely suppress visible reCAPTCHA badges, backdrops, and interactive challenge popups */
+.grecaptcha-badge {
+  visibility: hidden !important;
+  opacity: 0 !important;
+  pointer-events: none !important;
+  display: none !important;
+}
+
+iframe[src*="recaptcha"],
+iframe[title*="recaptcha challenge"],
+iframe[src*="google.com/recaptcha/api2/bframe"],
+div[style*="2147483647"],
+div[style*="2000000000"] {
+  display: none !important;
+  visibility: hidden !important;
+  pointer-events: none !important;
+}

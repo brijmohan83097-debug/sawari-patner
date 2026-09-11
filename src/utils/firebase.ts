@@ -11,6 +11,8 @@ import {
 } from 'firebase/auth';
 import { 
   getFirestore, 
+  initializeFirestore,
+  setLogLevel,
   Firestore
 } from 'firebase/firestore';
 import firebaseConfig from '../../firebase-applet-config.json';
@@ -19,14 +21,27 @@ let app: FirebaseApp | null = null;
 let auth: Auth | null = null;
 let db: Firestore | null = null;
 
+// Suppress internal WebSocket retry notices in sandboxed iframe environments
+try {
+  setLogLevel('error');
+} catch {
+  // ignore
+}
+
 try {
   if (firebaseConfig && firebaseConfig.apiKey) {
     app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApp();
     auth = getAuth(app);
 
-    // Initialize Firestore using canonical database ID per Firebase skill guidelines:
-    // export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId);
-    db = getFirestore(app, firebaseConfig.firestoreDatabaseId || undefined);
+    const dbId = firebaseConfig.firestoreDatabaseId || undefined;
+    try {
+      // Force HTTP long polling to guarantee stable connectivity in sandboxed iframes & web containers
+      db = initializeFirestore(app, {
+        experimentalForceLongPolling: true,
+      }, dbId);
+    } catch {
+      db = getFirestore(app, dbId);
+    }
   }
 } catch (e) {
   console.warn('Firebase initialization notice:', e);

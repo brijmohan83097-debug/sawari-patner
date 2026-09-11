@@ -115,11 +115,10 @@ export const PassengerAppView: React.FC<PassengerAppViewProps> = ({
       attributionControl: false
     });
 
-    // 100% Reliable CARTO Voyager tile layer (0 API Key required, no 403 blocks)
-    L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png', {
-      maxZoom: 20,
-      subdomains: 'abcd',
-      attribution: '&copy; <a href="https://carto.com/">CARTO</a>'
+    // 100% open public OpenStreetMap mirror (0 API Key required, no watermarks)
+    L.tileLayer('https://tile.openstreetmap.de/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
     }).addTo(map);
 
     mapInstanceRef.current = map;
@@ -389,7 +388,7 @@ export const PassengerAppView: React.FC<PassengerAppViewProps> = ({
         
         {/* Real-time OpenStreetMap canvas */}
         <div className="w-full h-[320px] sm:h-[360px] relative">
-          <div ref={mapContainerRef} className="w-full h-full z-0" />
+          <div key="clean-map-v1" ref={mapContainerRef} className="w-full h-full z-0" />
           
           {/* Realtime Live Sync Status Badge */}
           <div className="absolute top-3 left-3 z-10 px-3 py-1 bg-zinc-900/90 border border-zinc-700 rounded-full text-[11px] font-bold text-zinc-200 flex items-center gap-2 backdrop-blur-md shadow-md">
