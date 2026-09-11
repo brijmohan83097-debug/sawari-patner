@@ -34,8 +34,28 @@ interface MapSimulatorProps {
 
 type TileStyle = 'night' | 'day' | 'hot';
 
-// Default fallback coordinates: Hyderabad, Telangana
-const HYDERABAD_FALLBACK: LatLng = { lat: 17.3850, lng: 78.4867 };
+// Default fallback coordinates: Hyderabad central hub (Begumpet / Ameerpet)
+const HYDERABAD_DEFAULT: LatLng = { lat: 17.4572, lng: 78.4502 };
+
+// Retrieve cached coordinates from localStorage or fallback to [17.4572, 78.4502]
+const getInitialCaptainLocation = (): LatLng => {
+  if (typeof window === 'undefined') return HYDERABAD_DEFAULT;
+  try {
+    const saved = localStorage.getItem('sawari_captain_lat_lng');
+    if (saved) {
+      const parsed = JSON.parse(saved);
+      if (parsed && typeof parsed.lat === 'number' && typeof parsed.lng === 'number') {
+        return { lat: parsed.lat, lng: parsed.lng };
+      }
+      if (Array.isArray(parsed) && parsed.length >= 2 && typeof parsed[0] === 'number' && typeof parsed[1] === 'number') {
+        return { lat: parsed[0], lng: parsed[1] };
+      }
+    }
+  } catch (err) {
+    console.debug('Failed to parse cached captain coordinates:', err);
+  }
+  return HYDERABAD_DEFAULT;
+};
 
 const TILE_LAYERS: Record<TileStyle, { url: string; attribution: string; name: string; tileClass: string }> = {
   night: {
@@ -75,9 +95,20 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
 
   const [tileStyle, setTileStyle] = useState<TileStyle>('day');
   const [mapHeading, setMapHeading] = useState(24);
-  const [liveLocation, setLiveLocation] = useState<LatLng>(HYDERABAD_FALLBACK);
+  const [liveLocation, setLiveLocation] = useState<LatLng>(getInitialCaptainLocation);
   const [gpsActive, setGpsActive] = useState<boolean>(false);
   const hasInitialGpsCentered = useRef<boolean>(false);
+
+  // Cache position to localStorage whenever liveLocation updates
+  useEffect(() => {
+    if (liveLocation && typeof liveLocation.lat === 'number' && typeof liveLocation.lng === 'number') {
+      try {
+        localStorage.setItem('sawari_captain_lat_lng', JSON.stringify(liveLocation));
+      } catch (e) {
+        console.debug('Failed to cache captain position:', e);
+      }
+    }
+  }, [liveLocation]);
 
   // 1. Real Device GPS (navigator.geolocation.watchPosition)
   useEffect(() => {
@@ -93,18 +124,32 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
         setLiveLocation(coords);
         setGpsActive(true);
 
+        // Cache current position immediately to localStorage
+        try {
+          localStorage.setItem('sawari_captain_lat_lng', JSON.stringify(coords));
+        } catch {
+          // ignore storage error
+        }
+
         // If device provides orientation/heading, update marker heading
         if (heading !== null && !isNaN(heading) && heading >= 0) {
           setMapHeading(Math.round(heading));
         }
 
-        // Center map on real device location on first fix or when idle
+        // Center map on real device location with smooth map.flyTo instead of sudden snapping
         if (mapInstanceRef.current) {
+          const currentZoom = mapInstanceRef.current.getZoom() || 16;
           if (!hasInitialGpsCentered.current) {
-            mapInstanceRef.current.setView([latitude, longitude], 16, { animate: true });
+            mapInstanceRef.current.flyTo([latitude, longitude], 16, { 
+              duration: 1.5,
+              easeLinearity: 0.25 
+            });
             hasInitialGpsCentered.current = true;
           } else if (activeTripStep === 'idle') {
-            mapInstanceRef.current.panTo([latitude, longitude], { animate: true });
+            mapInstanceRef.current.flyTo([latitude, longitude], currentZoom, {
+              duration: 1.2,
+              easeLinearity: 0.25
+            });
           }
         }
       },
@@ -368,7 +413,10 @@ export const MapSimulator: React.FC<MapSimulatorProps> = ({
   // Recenter GPS Handler to device live location
   const handleRecenter = () => {
     if (mapInstanceRef.current) {
-      mapInstanceRef.current.setView([currentCaptainCoords.lat, currentCaptainCoords.lng], 16, { animate: true });
+      mapInstanceRef.current.flyTo([currentCaptainCoords.lat, currentCaptainCoords.lng], 16, {
+        duration: 1.2,
+        easeLinearity: 0.25
+      });
     }
   };
 
